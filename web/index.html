@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A bounded, evidence-oriented product priority workbench.">
+  <title>Priority Foregrounds Kanban</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span>Priority Foregrounds</span> Kanban</div>
+      <nav aria-label="Page sections">
+        <a href="#principles">Principles</a>
+        <a href="#queue">Queue</a>
+        <a href="#cost">Cost</a>
+      </nav>
+      <div class="status">Decision model v1</div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <header class="workbench-head">
+      <div>
+        <div class="eyebrow">Product priority workbench</div>
+        <h1>Make the tradeoff visible.</h1>
+        <p>Allocate exactly 100 points across the principles that matter. The queue updates deterministically; AI can propose complete evidence-bearing score columns, but never owns the final priority.</p>
+      </div>
+      <div class="decision-contract">
+        <div class="label">Decision contract</div>
+        <strong>Operator-owned weights and action</strong>
+        <span>Model scores remain proposals with prompt, queue, token, cache, and result provenance.</span>
+      </div>
+    </header>
+
+    <section id="principles">
+      <div class="section-head">
+        <div>
+          <h2>Principles</h2>
+          <p>Every principle retains a 0.1-point floor. Rows reorder only after a slider is released.</p>
+        </div>
+        <span id="allocation" class="allocation" aria-live="polite">Priority budget: 100 / 100 allocated</span>
+      </div>
+
+      <div class="preset-row" aria-label="Decision presets">
+        <button class="preset active" data-preset="balanced">Balanced</button>
+        <button class="preset" data-preset="customer">Customer value</button>
+        <button class="preset" data-preset="leverage">Long-term leverage</button>
+        <button class="preset" data-preset="margin">Cost discipline</button>
+        <button id="reset" class="icon-button" title="Reset principle weights" aria-label="Reset principle weights">&#8634;</button>
+      </div>
+
+      <div class="principles-head" aria-hidden="true">
+        <span>Rank</span><span>Principle</span><span>Priority weight</span><span></span>
+      </div>
+      <div id="principle-controls" class="principle-controls" aria-label="Ranked principles">
+        <div class="weight" data-principle="customer">
+          <span class="principle-rank" aria-label="Principle rank 1">#1</span>
+          <button type="button" class="principle-copy" data-edit-principle="customer" title="Edit Customer value scoring prompt">
+            <strong>Customer value</strong>
+            <small>How directly this solves a painful, paid customer problem.</small>
+            <span class="principle-status" id="s-customer">Seed scores</span>
+          </button>
+          <div class="weight-control"><input id="w-customer" data-weight="customer" aria-label="Customer value weight" type="range" min="0.1" max="99.6" step="any" value="30"><output id="o-customer" for="w-customer">30</output></div>
+          <button type="button" class="rescore-principle" data-rescore-principle="customer" title="Re-score the queue for Customer value" aria-label="Re-score the queue for Customer value">&#8635;</button>
+        </div>
+        <div class="weight" data-principle="leverage">
+          <span class="principle-rank" aria-label="Principle rank 2">#2</span>
+          <button type="button" class="principle-copy" data-edit-principle="leverage" title="Edit Strategic leverage scoring prompt">
+            <strong>Strategic leverage</strong>
+            <small>How much this makes later delivery easier, faster, or safer.</small>
+            <span class="principle-status" id="s-leverage">Seed scores</span>
+          </button>
+          <div class="weight-control"><input id="w-leverage" data-weight="leverage" aria-label="Strategic leverage weight" type="range" min="0.1" max="99.6" step="any" value="25"><output id="o-leverage" for="w-leverage">25</output></div>
+          <button type="button" class="rescore-principle" data-rescore-principle="leverage" title="Re-score the queue for Strategic leverage" aria-label="Re-score the queue for Strategic leverage">&#8635;</button>
+        </div>
+        <div class="weight" data-principle="confidence">
+          <span class="principle-rank" aria-label="Principle rank 3">#3</span>
+          <button type="button" class="principle-copy" data-edit-principle="confidence" title="Edit Execution confidence scoring prompt">
+            <strong>Execution confidence</strong>
+            <small>How much this removes material delivery or operating risk.</small>
+            <span class="principle-status" id="s-confidence">Seed scores</span>
+          </button>
+          <div class="weight-control"><input id="w-confidence" data-weight="confidence" aria-label="Execution confidence weight" type="range" min="0.1" max="99.6" step="any" value="20"><output id="o-confidence" for="w-confidence">20</output></div>
+          <button type="button" class="rescore-principle" data-rescore-principle="confidence" title="Re-score the queue for Execution confidence" aria-label="Re-score the queue for Execution confidence">&#8635;</button>
+        </div>
+        <div class="weight" data-principle="learning">
+          <span class="principle-rank" aria-label="Principle rank 4">#4</span>
+          <button type="button" class="principle-copy" data-edit-principle="learning" title="Edit Learning velocity scoring prompt">
+            <strong>Learning velocity</strong>
+            <small>How quickly this produces trustworthy information or reusable automation.</small>
+            <span class="principle-status" id="s-learning">Seed scores</span>
+          </button>
+          <div class="weight-control"><input id="w-learning" data-weight="learning" aria-label="Learning velocity weight" type="range" min="0.1" max="99.6" step="any" value="15"><output id="o-learning" for="w-learning">15</output></div>
+          <button type="button" class="rescore-principle" data-rescore-principle="learning" title="Re-score the queue for Learning velocity" aria-label="Re-score the queue for Learning velocity">&#8635;</button>
+        </div>
+        <div class="weight" data-principle="cost">
+          <span class="principle-rank" aria-label="Principle rank 5">#5</span>
+          <button type="button" class="principle-copy" data-edit-principle="cost" title="Edit Cost discipline scoring prompt">
+            <strong>Cost discipline</strong>
+            <small>How much this protects margin or bounds recurring spend.</small>
+            <span class="principle-status" id="s-cost">Seed scores</span>
+          </button>
+          <div class="weight-control"><input id="w-cost" data-weight="cost" aria-label="Cost discipline weight" type="range" min="0.1" max="99.6" step="any" value="10"><output id="o-cost" for="w-cost">10</output></div>
+          <button type="button" class="rescore-principle" data-rescore-principle="cost" title="Re-score the queue for Cost discipline" aria-label="Re-score the queue for Cost discipline">&#8635;</button>
+        </div>
+      </div>
+    </section>
+
+    <dialog id="principle-editor" aria-labelledby="principle-editor-title">
+      <form method="dialog">
+        <div class="dialog-head">
+          <div><div class="label">Principle prompt</div><h3 id="principle-editor-title"></h3></div>
+          <button class="dialog-close" value="cancel" aria-label="Close prompt editor" title="Close">&#215;</button>
+        </div>
+        <label class="prompt-label" for="principle-prompt">Scoring prompt</label>
+        <textarea id="principle-prompt" maxlength="4000" rows="9"></textarea>
+        <div id="principle-prompt-meta" class="prompt-meta"></div>
+        <div id="principle-prompt-error" class="prompt-error" role="alert" hidden></div>
+        <div class="dialog-actions">
+          <button value="cancel" class="secondary">Cancel</button>
+          <button id="save-principle-prompt" type="button" class="secondary">Save prompt</button>
+          <button id="save-and-rescore" type="button" class="primary">Save and re-score queue</button>
+        </div>
+      </form>
+    </dialog>
+
+    <section id="queue">
+      <div class="section-head">
+        <div><h2>Priority queue</h2><p>Rank is derived from principle scores and effort. Select an item to inspect the evidence behind it.</p></div>
+        <div class="legend"><span class="dot now"></span>Now <span class="dot next"></span>Next <span class="dot later"></span>Later <span class="dot parked"></span>Parked</div>
+      </div>
+      <div class="portfolio-wrap">
+        <table>
+          <thead><tr><th>Rank</th><th>Initiative</th><th>Horizon</th><th>Customer</th><th>Leverage</th><th>Confidence</th><th>Learning</th><th>Cost</th><th>Effort</th><th>Total</th></tr></thead>
+          <tbody id="portfolio-body"></tbody>
+        </table>
+      </div>
+      <div id="initiative-detail" class="detail" aria-live="polite"></div>
+    </section>
+
+    <section id="cost">
+      <div class="section-head"><div><h2>Unit economics</h2><p>A planning calculator for explicit assumptions. Unknown provider costs must remain unknown rather than silently becoming zero.</p></div></div>
+      <div class="cost-grid">
+        <div class="cost-inputs">
+          <div class="field"><label for="units-day">Operating units per day</label><input id="units-day" type="number" min="0" step="1" value="40"></div>
+          <div class="field"><label for="variable-unit">Variable cost per unit</label><input id="variable-unit" type="number" min="0" step="0.01" value="0.85"></div>
+          <div class="field"><label for="fixed-month">Fixed monthly cost</label><input id="fixed-month" type="number" min="0" step="10" value="450"></div>
+          <div class="field"><label for="customers">Paying accounts</label><input id="customers" type="number" min="1" step="1" value="5"></div>
+          <div class="field"><label for="margin">Target gross margin (%)</label><input id="margin" type="number" min="0" max="95" step="1" value="70"></div>
+        </div>
+        <div>
+          <div class="metrics">
+            <div class="metric"><div class="label">Daily variable</div><strong id="daily-variable">$0</strong><small>Units x variable cost</small></div>
+            <div class="metric"><div class="label">Monthly operating</div><strong id="monthly-total">$0</strong><small>30 days plus fixed cost</small></div>
+            <div class="metric"><div class="label">Average cost / unit</div><strong id="cost-unit">$0</strong><small>Includes allocated fixed cost</small></div>
+            <div class="metric"><div class="label">Price floor / account</div><strong id="price-floor">$0</strong><small>At the selected target margin</small></div>
+          </div>
+          <div id="cost-guardrail" class="guardrail"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="operating-contract">
+      <h2>What remains deterministic</h2>
+      <div class="contract-grid">
+        <div><div class="label">Operator</div><strong>Weights and action</strong><p>Humans choose the principles, allocate the budget, and decide what enters delivery.</p></div>
+        <div><div class="label">Model</div><strong>Scores and concise reasons</strong><p>One bounded run proposes one complete column. Partial output is discarded.</p></div>
+        <div><div class="label">System</div><strong>Validation and provenance</strong><p>Hashes, model identity, token usage, cache state, and budgets travel with each accepted run.</p></div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
+
