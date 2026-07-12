@@ -167,7 +167,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     server = ThreadingHTTPServer((args.host, args.port), PriorityHandler)
     server.daemon_threads = True
-    print(f"Priority Foregrounds Kanban: http://{args.host}:{server.server_port}")
+    print(f"Priority Foregrounds Kanban: http://localhost:{server.server_port}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
