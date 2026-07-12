@@ -725,7 +725,7 @@
   const render = ({ reorderPrinciples = false } = {}) => {
     inputs.forEach((input, index) => { document.querySelector(`#o-${names[index]}`).value = weightLabel(input.value); });
     const allocated = inputs.reduce((sum, input) => sum + Number(input.value), 0);
-    document.querySelector("#allocation").textContent = `Priority budget: ${weightLabel(allocated)} / 100 allocated`;
+    document.querySelector("#allocation").textContent = `${weightLabel(allocated)} / 100`;
     if (reorderPrinciples) rankPrinciples();
     renderPrincipleStatuses();
     renderQueue();
@@ -901,6 +901,32 @@
   document.querySelector("#save-and-rescore").addEventListener("click", async () => { if (savePromptFromEditor() && await rescorePrinciple(activePrinciple)) editor.close(); });
   editor.addEventListener("close", () => { activePrinciple = ""; promptError.hidden = true; });
   document.querySelectorAll(".cost-inputs input").forEach((input) => input.addEventListener("input", renderCost));
+
+  // ── Panel expand / collapse ──────────────────────────────────────────
+  const collapseAll = () => {
+    document.querySelectorAll(".panel--full").forEach((panel) => {
+      panel.classList.remove("panel--full");
+    });
+    document.querySelectorAll(".panel-expand-btn").forEach((btn) => {
+      btn.setAttribute("aria-expanded", "false");
+    });
+  };
+  document.querySelectorAll(".panel-expand-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const panel = document.getElementById(btn.dataset.panel);
+      const expanding = !panel.classList.contains("panel--full");
+      collapseAll();
+      if (expanding) {
+        panel.classList.add("panel--full");
+        btn.setAttribute("aria-expanded", "true");
+        panel.focus();
+      }
+    });
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") collapseAll();
+  });
+  // ────────────────────────────────────────────────────────────────────
 
   render({ reorderPrinciples: true });
   renderDetail(initiatives.find((item) => item.id === selected));

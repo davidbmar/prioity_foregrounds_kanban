@@ -28,102 +28,134 @@
   </header>
 
   <main class="shell">
-    <header class="workbench-head">
-      <div>
-        <div class="eyebrow">Product priority workbench</div>
-        <h1>Make the tradeoff visible.</h1>
-        <p>Allocate exactly 100 points across the principles that matter. The queue updates deterministically; AI can propose complete evidence-bearing score columns, but never owns the final priority.</p>
-      </div>
-      <div class="decision-contract">
-        <div class="label">Decision contract</div>
-        <strong>Operator-owned weights and action</strong>
-        <span>Model scores remain proposals with prompt, queue, token, cache, and result provenance.</span>
-      </div>
-    </header>
 
-    <section id="principles">
-      <div class="section-head">
-        <div>
-          <h2>Principles</h2>
-          <p>Every principle retains a 0.1-point floor. Rows reorder only after a slider is released.</p>
+    <div class="workbench-grid">
+
+      <!-- ── Panel 1: Principles ──────────────────────────────────────── -->
+      <div class="panel" id="principles">
+        <div class="panel-header">
+          <div class="panel-header-left">
+            <div class="eyebrow">Budget</div>
+            <h2>Principles</h2>
+          </div>
+          <div class="panel-header-right">
+            <span id="allocation" class="allocation" aria-live="polite">100 / 100</span>
+            <button class="panel-expand-btn" data-panel="principles" aria-expanded="false" aria-label="Expand Principles panel" title="Expand to full screen"></button>
+          </div>
         </div>
-        <span id="allocation" class="allocation" aria-live="polite">Priority budget: 100 / 100 allocated</span>
+        <div class="panel-body">
+          <div class="preset-row" aria-label="Decision presets">
+            <button class="preset active" data-preset="balanced">Balanced</button>
+            <button class="preset" data-preset="customer">Customer value</button>
+            <button class="preset" data-preset="leverage">Long-term leverage</button>
+            <button class="preset" data-preset="margin">Cost discipline</button>
+            <button id="reset" class="icon-button" title="Reset principle weights" aria-label="Reset principle weights">&#8634;</button>
+          </div>
+          <div class="principles-head" aria-hidden="true">
+            <span>Rank</span><span>Principle</span><span>Weight</span><span></span>
+          </div>
+          <div id="principle-controls" class="principle-controls" aria-label="Ranked principles">
+            <div class="weight" data-principle="customer">
+              <span class="principle-rank" aria-label="Principle rank 1">#1</span>
+              <button type="button" class="principle-copy" data-edit-principle="customer" title="Edit Customer value scoring prompt">
+                <strong>Customer value</strong>
+                <small>How directly this solves a painful, paid customer problem.</small>
+                <span class="principle-status" id="s-customer">Seed scores</span>
+              </button>
+              <div class="weight-control"><input id="w-customer" data-weight="customer" aria-label="Customer value weight" type="range" min="0.1" max="99.6" step="any" value="24"><output id="o-customer" for="w-customer">24</output></div>
+              <button type="button" class="rescore-principle" data-rescore-principle="customer" title="Re-score the queue for Customer value" aria-label="Re-score the queue for Customer value">&#8635;</button>
+            </div>
+            <div class="weight" data-principle="leverage">
+              <span class="principle-rank" aria-label="Principle rank 2">#2</span>
+              <button type="button" class="principle-copy" data-edit-principle="leverage" title="Edit Strategic leverage scoring prompt">
+                <strong>Strategic leverage</strong>
+                <small>How much this makes later delivery easier, faster, or safer.</small>
+                <span class="principle-status" id="s-leverage">Seed scores</span>
+              </button>
+              <div class="weight-control"><input id="w-leverage" data-weight="leverage" aria-label="Strategic leverage weight" type="range" min="0.1" max="99.6" step="any" value="20"><output id="o-leverage" for="w-leverage">20</output></div>
+              <button type="button" class="rescore-principle" data-rescore-principle="leverage" title="Re-score the queue for Strategic leverage" aria-label="Re-score the queue for Strategic leverage">&#8635;</button>
+            </div>
+            <div class="weight" data-principle="ai_leverage">
+              <span class="principle-rank" aria-label="Principle rank 3">#3</span>
+              <button type="button" class="principle-copy" data-edit-principle="ai_leverage" title="Edit AI Compounding scoring prompt">
+                <strong>AI Compounding</strong>
+                <small>How much this enables AI to do this work for us — the autonomy ratchet.</small>
+                <span class="principle-status" id="s-ai_leverage">Seed scores</span>
+              </button>
+              <div class="weight-control"><input id="w-ai_leverage" data-weight="ai_leverage" aria-label="AI Compounding weight" type="range" min="0.1" max="99.6" step="any" value="16"><output id="o-ai_leverage" for="w-ai_leverage">16</output></div>
+              <button type="button" class="rescore-principle" data-rescore-principle="ai_leverage" title="Re-score the queue for AI Compounding" aria-label="Re-score the queue for AI Compounding">&#8635;</button>
+            </div>
+            <div class="weight" data-principle="urgency">
+              <span class="principle-rank" aria-label="Principle rank 4">#4</span>
+              <button type="button" class="principle-copy" data-edit-principle="urgency" title="Edit Urgency scoring prompt">
+                <strong>Urgency</strong>
+                <small>How time-sensitive — deadlines, EOL, penalties for delay.</small>
+                <span class="principle-status" id="s-urgency">Seed scores</span>
+              </button>
+              <div class="weight-control"><input id="w-urgency" data-weight="urgency" aria-label="Urgency weight" type="range" min="0.1" max="99.6" step="any" value="14"><output id="o-urgency" for="w-urgency">14</output></div>
+              <button type="button" class="rescore-principle" data-rescore-principle="urgency" title="Re-score the queue for Urgency" aria-label="Re-score the queue for Urgency">&#8635;</button>
+            </div>
+            <div class="weight" data-principle="cost">
+              <span class="principle-rank" aria-label="Principle rank 5">#5</span>
+              <button type="button" class="principle-copy" data-edit-principle="cost" title="Edit Cost discipline scoring prompt">
+                <strong>Cost discipline</strong>
+                <small>How much this protects margin or bounds recurring spend.</small>
+                <span class="principle-status" id="s-cost">Seed scores</span>
+              </button>
+              <div class="weight-control"><input id="w-cost" data-weight="cost" aria-label="Cost discipline weight" type="range" min="0.1" max="99.6" step="any" value="14"><output id="o-cost" for="w-cost">14</output></div>
+              <button type="button" class="rescore-principle" data-rescore-principle="cost" title="Re-score the queue for Cost discipline" aria-label="Re-score the queue for Cost discipline">&#8635;</button>
+            </div>
+            <div class="weight" data-principle="security">
+              <span class="principle-rank" aria-label="Principle rank 6">#6</span>
+              <button type="button" class="principle-copy" data-edit-principle="security" title="Edit Security scoring prompt">
+                <strong>Security</strong>
+                <small>How much this improves Capsule's security posture.</small>
+                <span class="principle-status" id="s-security">Seed scores</span>
+              </button>
+              <div class="weight-control"><input id="w-security" data-weight="security" aria-label="Security weight" type="range" min="0.1" max="99.6" step="any" value="12"><output id="o-security" for="w-security">12</output></div>
+              <button type="button" class="rescore-principle" data-rescore-principle="security" title="Re-score the queue for Security" aria-label="Re-score the queue for Security">&#8635;</button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div class="preset-row" aria-label="Decision presets">
-        <button class="preset active" data-preset="balanced">Balanced</button>
-        <button class="preset" data-preset="customer">Customer value</button>
-        <button class="preset" data-preset="leverage">Long-term leverage</button>
-        <button class="preset" data-preset="margin">Cost discipline</button>
-        <button id="reset" class="icon-button" title="Reset principle weights" aria-label="Reset principle weights">&#8634;</button>
+      <!-- ── Panel 2: Queue ────────────────────────────────────────────── -->
+      <div class="panel" id="queue">
+        <div class="panel-header">
+          <div class="panel-header-left">
+            <div class="eyebrow">Deterministic ranking</div>
+            <h2>Priority queue</h2>
+          </div>
+          <div class="panel-header-right">
+            <div class="legend"><span class="dot now"></span>Now <span class="dot next"></span>Next <span class="dot later"></span>Later <span class="dot parked"></span>Parked</div>
+            <button class="panel-expand-btn" data-panel="queue" aria-expanded="false" aria-label="Expand Priority queue panel" title="Expand to full screen"></button>
+          </div>
+        </div>
+        <div class="panel-body panel-body--flush">
+          <div class="portfolio-wrap">
+            <table>
+              <thead><tr><th>Rank</th><th>Initiative</th><th>Horizon</th><th>Customer</th><th>Leverage</th><th>AI Comp.</th><th>Urgency</th><th>Cost</th><th>Security</th><th>Effort</th><th>Total</th></tr></thead>
+              <tbody id="portfolio-body"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
-      <div class="principles-head" aria-hidden="true">
-        <span>Rank</span><span>Principle</span><span>Priority weight</span><span></span>
-      </div>
-      <div id="principle-controls" class="principle-controls" aria-label="Ranked principles">
-        <div class="weight" data-principle="customer">
-          <span class="principle-rank" aria-label="Principle rank 1">#1</span>
-          <button type="button" class="principle-copy" data-edit-principle="customer" title="Edit Customer value scoring prompt">
-            <strong>Customer value</strong>
-            <small>How directly this solves a painful, paid customer problem.</small>
-            <span class="principle-status" id="s-customer">Seed scores</span>
-          </button>
-          <div class="weight-control"><input id="w-customer" data-weight="customer" aria-label="Customer value weight" type="range" min="0.1" max="99.6" step="any" value="24"><output id="o-customer" for="w-customer">24</output></div>
-          <button type="button" class="rescore-principle" data-rescore-principle="customer" title="Re-score the queue for Customer value" aria-label="Re-score the queue for Customer value">&#8635;</button>
+      <!-- ── Panel 3: Detail ───────────────────────────────────────────── -->
+      <div class="panel" id="panel-detail">
+        <div class="panel-header">
+          <div class="panel-header-left">
+            <div class="eyebrow">Evidence</div>
+            <h2>Initiative</h2>
+          </div>
+          <button class="panel-expand-btn" data-panel="panel-detail" aria-expanded="false" aria-label="Expand Initiative detail panel" title="Expand to full screen"></button>
         </div>
-        <div class="weight" data-principle="leverage">
-          <span class="principle-rank" aria-label="Principle rank 2">#2</span>
-          <button type="button" class="principle-copy" data-edit-principle="leverage" title="Edit Strategic leverage scoring prompt">
-            <strong>Strategic leverage</strong>
-            <small>How much this makes later delivery easier, faster, or safer.</small>
-            <span class="principle-status" id="s-leverage">Seed scores</span>
-          </button>
-          <div class="weight-control"><input id="w-leverage" data-weight="leverage" aria-label="Strategic leverage weight" type="range" min="0.1" max="99.6" step="any" value="20"><output id="o-leverage" for="w-leverage">20</output></div>
-          <button type="button" class="rescore-principle" data-rescore-principle="leverage" title="Re-score the queue for Strategic leverage" aria-label="Re-score the queue for Strategic leverage">&#8635;</button>
-        </div>
-        <div class="weight" data-principle="ai_leverage">
-          <span class="principle-rank" aria-label="Principle rank 3">#3</span>
-          <button type="button" class="principle-copy" data-edit-principle="ai_leverage" title="Edit AI Compounding scoring prompt">
-            <strong>AI Compounding</strong>
-            <small>How much this enables AI to do this work for us — the autonomy ratchet.</small>
-            <span class="principle-status" id="s-ai_leverage">Seed scores</span>
-          </button>
-          <div class="weight-control"><input id="w-ai_leverage" data-weight="ai_leverage" aria-label="AI Compounding weight" type="range" min="0.1" max="99.6" step="any" value="16"><output id="o-ai_leverage" for="w-ai_leverage">16</output></div>
-          <button type="button" class="rescore-principle" data-rescore-principle="ai_leverage" title="Re-score the queue for AI Compounding" aria-label="Re-score the queue for AI Compounding">&#8635;</button>
-        </div>
-        <div class="weight" data-principle="urgency">
-          <span class="principle-rank" aria-label="Principle rank 4">#4</span>
-          <button type="button" class="principle-copy" data-edit-principle="urgency" title="Edit Urgency scoring prompt">
-            <strong>Urgency</strong>
-            <small>How time-sensitive — deadlines, EOL, penalties for delay.</small>
-            <span class="principle-status" id="s-urgency">Seed scores</span>
-          </button>
-          <div class="weight-control"><input id="w-urgency" data-weight="urgency" aria-label="Urgency weight" type="range" min="0.1" max="99.6" step="any" value="14"><output id="o-urgency" for="w-urgency">14</output></div>
-          <button type="button" class="rescore-principle" data-rescore-principle="urgency" title="Re-score the queue for Urgency" aria-label="Re-score the queue for Urgency">&#8635;</button>
-        </div>
-        <div class="weight" data-principle="cost">
-          <span class="principle-rank" aria-label="Principle rank 5">#5</span>
-          <button type="button" class="principle-copy" data-edit-principle="cost" title="Edit Cost discipline scoring prompt">
-            <strong>Cost discipline</strong>
-            <small>How much this protects margin or bounds recurring spend.</small>
-            <span class="principle-status" id="s-cost">Seed scores</span>
-          </button>
-          <div class="weight-control"><input id="w-cost" data-weight="cost" aria-label="Cost discipline weight" type="range" min="0.1" max="99.6" step="any" value="14"><output id="o-cost" for="w-cost">14</output></div>
-          <button type="button" class="rescore-principle" data-rescore-principle="cost" title="Re-score the queue for Cost discipline" aria-label="Re-score the queue for Cost discipline">&#8635;</button>
-        </div>
-        <div class="weight" data-principle="security">
-          <span class="principle-rank" aria-label="Principle rank 6">#6</span>
-          <button type="button" class="principle-copy" data-edit-principle="security" title="Edit Security scoring prompt">
-            <strong>Security</strong>
-            <small>How much this improves Capsule's security posture.</small>
-            <span class="principle-status" id="s-security">Seed scores</span>
-          </button>
-          <div class="weight-control"><input id="w-security" data-weight="security" aria-label="Security weight" type="range" min="0.1" max="99.6" step="any" value="12"><output id="o-security" for="w-security">12</output></div>
-          <button type="button" class="rescore-principle" data-rescore-principle="security" title="Re-score the queue for Security" aria-label="Re-score the queue for Security">&#8635;</button>
+        <div class="panel-body">
+          <div id="initiative-detail" class="detail" aria-live="polite"></div>
         </div>
       </div>
-    </section>
+
+    </div><!-- /.workbench-grid -->
 
     <dialog id="principle-editor" aria-labelledby="principle-editor-title">
       <form method="dialog">
@@ -142,20 +174,6 @@
         </div>
       </form>
     </dialog>
-
-    <section id="queue">
-      <div class="section-head">
-        <div><h2>Priority queue</h2><p>Rank is derived from principle scores and effort. Select an item to inspect the evidence behind it.</p></div>
-        <div class="legend"><span class="dot now"></span>Now <span class="dot next"></span>Next <span class="dot later"></span>Later <span class="dot parked"></span>Parked</div>
-      </div>
-      <div class="portfolio-wrap">
-        <table>
-          <thead><tr><th>Rank</th><th>Initiative</th><th>Horizon</th><th>Customer</th><th>Leverage</th><th>AI Comp.</th><th>Urgency</th><th>Cost</th><th>Security</th><th>Effort</th><th>Total</th></tr></thead>
-          <tbody id="portfolio-body"></tbody>
-        </table>
-      </div>
-      <div id="initiative-detail" class="detail" aria-live="polite"></div>
-    </section>
 
     <section id="cost">
       <div class="section-head"><div><h2>Unit economics</h2><p>A planning calculator for explicit assumptions. Unknown provider costs must remain unknown rather than silently becoming zero.</p></div></div>
@@ -187,7 +205,7 @@
         <div><div class="label">System</div><strong>Validation and provenance</strong><p>Hashes, model identity, token usage, cache state, and budgets travel with each accepted run.</p></div>
       </div>
     </section>
+
   </main>
 </body>
 </html>
-
