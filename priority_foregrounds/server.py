@@ -89,7 +89,7 @@ class PriorityHandler(BaseHTTPRequestHandler):
             content_type += "; charset=utf-8"
         self.send_response(200)
         self._security_headers(content_type=content_type, length=len(body))
-        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(body)
