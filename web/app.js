@@ -607,6 +607,14 @@
     list.append(term, definition);
   };
 
+  const securityBand = (score) => {
+    if (score >= 90) return { label: "CRITICAL", cls: "sec-critical" };
+    if (score >= 70) return { label: "HIGH",     cls: "sec-high" };
+    if (score >= 40) return { label: "MEDIUM",   cls: "sec-medium" };
+    if (score >= 10) return { label: "LOW",       cls: "sec-low" };
+    return                  { label: "NONE",      cls: "sec-none" };
+  };
+
   const renderDetail = (item) => {
     const root = document.querySelector("#initiative-detail");
     root.replaceChildren();
@@ -626,6 +634,46 @@
     addDefinition(list, "AI fit", item.ai_fit);
     addDefinition(list, "Cost", item.cost);
     main.append(eyebrow, title, summary, list);
+
+    // Score breakdown
+    const scoreGrid = document.createElement("div");
+    scoreGrid.className = "detail-score-grid";
+    const scoreGridLabel = document.createElement("div");
+    scoreGridLabel.className = "label";
+    scoreGridLabel.textContent = "Principle scores";
+    scoreGrid.appendChild(scoreGridLabel);
+    names.forEach((name, index) => {
+      const score = item.scores[index];
+      const cell = document.createElement("div");
+      cell.className = "detail-score-cell";
+      const pname = document.createElement("span");
+      pname.className = "detail-score-name";
+      pname.textContent = principles[name].name;
+      const val = document.createElement("span");
+      val.className = "detail-score-value";
+      val.textContent = String(score);
+      if (name === "security") {
+        const band = securityBand(score);
+        const badge = document.createElement("span");
+        badge.className = `detail-sec-badge ${band.cls}`;
+        badge.textContent = band.label;
+        cell.append(pname, val, badge);
+      } else {
+        cell.append(pname, val);
+      }
+      scoreGrid.appendChild(cell);
+    });
+    const totalRow = document.createElement("div");
+    totalRow.className = "detail-score-cell detail-score-total";
+    const totalLabel = document.createElement("span");
+    totalLabel.className = "detail-score-name";
+    totalLabel.textContent = `Weighted total (effort ${item.effort}/5)`;
+    const totalVal = document.createElement("span");
+    totalVal.className = "detail-score-value";
+    totalVal.textContent = weightedScore(item).toFixed(1);
+    totalRow.append(totalLabel, totalVal);
+    scoreGrid.appendChild(totalRow);
+    main.appendChild(scoreGrid);
 
     const side = document.createElement("div");
     side.className = "detail-side";
@@ -659,8 +707,8 @@
         const value = document.createElement("span");
         const reason = document.createElement("p");
         const status = principleStatus(name);
-        principle.textContent = `${principles[name].name}${status.kind === "stale" ? " - stale" : ""}`;
-        value.textContent = `${item.scores[names.indexOf(name)]}/5`;
+        principle.textContent = `${principles[name].name}${status.kind === "stale" ? " — stale" : ""}`;
+        value.textContent = String(item.scores[names.indexOf(name)]);
         reason.className = "score-evidence-reason";
         reason.textContent = item.scoreReasons[name];
         const provenance = principles[name].provenance || {};

@@ -454,6 +454,32 @@ tbody tr.selected { box-shadow: inset 4px 0 0 var(--gold); }
 .detail dd { margin: 0; font-size: 13px; }
 .proof { border-left: 3px solid var(--blue); padding-left: 10px; }
 
+/* Principle score breakdown inside detail */
+.detail-score-grid {
+  margin-top: 18px; border-top: 1px solid var(--line); padding-top: 12px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.detail-score-cell {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; padding: 4px 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent);
+}
+.detail-score-cell:last-child { border-bottom: none; }
+.detail-score-name { flex: 1; color: var(--muted); }
+.detail-score-value { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--gold); min-width: 28px; text-align: right; }
+.detail-score-total .detail-score-name { color: var(--ink); font-weight: 700; }
+.detail-score-total .detail-score-value { font-size: 14px; color: var(--blue); }
+
+/* Security severity badges */
+.detail-sec-badge {
+  font-size: 10px; font-weight: 800; letter-spacing: .04em;
+  padding: 1px 6px; border-radius: 3px; text-transform: uppercase;
+}
+.sec-critical { background: #7f1d1d; color: #fca5a5; }
+.sec-high     { background: #7c2d12; color: #fdba74; }
+.sec-medium   { background: #713f12; color: #fde68a; }
+.sec-low      { background: #1e3a5f; color: #93c5fd; }
+.sec-none     { background: color-mix(in srgb, var(--line) 60%, transparent); color: var(--muted); }
+
 .score-evidence { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 12px; }
 .score-evidence-row { margin-top: 10px; }
 .score-evidence-head {
