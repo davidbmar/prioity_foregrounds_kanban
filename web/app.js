@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const STORE_SCHEMA = "priority_foregrounds.workspace/v2";
+  const STORE_SCHEMA = "priority_foregrounds.workspace/v3";
   const REQUEST_SCHEMA = "priority_foregrounds.rescore_request/v1";
   const RESULT_SCHEMA = "priority_foregrounds.rescore_result/v1";
   const names = ["customer", "leverage", "ai_leverage", "urgency", "cost", "security"];
@@ -34,7 +34,7 @@
     },
     security: {
       name: "Security",
-      prompt: "Score how much the initiative improves Capsule's security posture. A 5 closes a demonstrated high-impact gap — authentication boundaries, encryption, access control, supply chain integrity, or compliance controls — with verifiable improvement; a 1 has no meaningful security impact.",
+      prompt: "Score the security severity this initiative addresses using a CRITICAL / HIGH / MEDIUM / LOW / NONE framework grounded in security best practices.\n\nCRITICAL (90–100): Active or easily exploitable risk — EOL software with unpatched CVEs in security-critical components (CNI, certificate management, credential stores), missing isolation or authentication boundaries for production systems, active supply-chain compromise vectors, or compliance gaps that constitute a demonstrable breach risk (HIPAA, SOC2). These are fix-now items.\n\nHIGH (70–89): Known CVEs in outdated but not-yet-EOL components, incomplete security controls with a clear exploitation path, key management failures that caused or risk causing incidents, dead-end supply chains with no patch channel, or missing egress attribution required for breach scoping.\n\nMEDIUM (40–69): Security hygiene work that reduces attack surface without an active exploit — undocumented exceptions that are audit findings, RBAC hardening, audit logging for SOC2, access control improvements, or observability tooling that enables security monitoring.\n\nLOW (10–39): Infrastructure work with a minor incidental security benefit — deprecated driver replacement, config drift prevention, or documentation that closes a paper audit finding but does not close an exploitable gap.\n\nNONE (0–9): No meaningful security impact — cost optimization, performance tuning, or feature work with no security surface change.",
     },
   };
 
@@ -53,7 +53,7 @@
       dependency: "PV zone affinity validation (kubectl get pv -o json | jq) before drain. Coordination with monitoring workload owners (Prometheus/Thanos with persistent volumes).",
       proof: "aws eks list-insights shows no kubelet version-skew warning; all 7 monitoring nodes replaced and running kubelet 1.34+. prd-internal nodes (~77 days old) reviewed and scheduled.",
       effort: 3,
-      scores: [45, 85, 10, 95, 60, 30],
+      scores: [45, 85, 10, 95, 60, 72],
     },
     {
       id: "eks_upgrade_135",
@@ -69,7 +69,7 @@
       dependency: "Blocked by kubelet 1.33 node replacement. Containerd 2.0 AMI readiness check during upgrade planning.",
       proof: "EKS control plane reports 1.35; all EKS upgrade insights pass; PreferSameNode visible in traffic distribution metrics.",
       effort: 3,
-      scores: [50, 90, 40, 85, 65, 50],
+      scores: [50, 90, 40, 85, 65, 75],
     },
     {
       id: "vpa_recommendation_mode",
@@ -85,7 +85,7 @@
       dependency: "EKS 1.35 for in-place resize features. VPA is already installed — only recommendation mode needs enabling.",
       proof: "VPA recommendations visible for monitoring and app workloads; at least 10 containers updated with evidence-backed limits; no OOM increase observed.",
       effort: 2,
-      scores: [55, 80, 60, 30, 75, 10],
+      scores: [55, 80, 60, 30, 75, 5],
     },
     {
       id: "cluster_optimization",
@@ -101,7 +101,7 @@
       dependency: "VPA recommendation mode enabled (requires EKS 1.35). CastAI node template access. prd-internal workload CPU profile documentation.",
       proof: "Node-level CPU:memory ratio measurably improved; monthly cluster cost reduced; prd-internal workloads on separate CPU-optimized pool; CastAI template updated.",
       effort: 4,
-      scores: [45, 65, 35, 25, 90, 10],
+      scores: [45, 65, 35, 25, 90, 5],
     },
     {
       id: "cert_manager_upgrade",
@@ -117,7 +117,7 @@
       dependency: "CRD backup before upgrade. sre-test rehearsal run through the documented upgrade path. Coordination with certificate consumers.",
       proof: "cert-manager 1.20.1 deployed in production; all 160 certificates healthy; sre-test upgrade rehearsed and documented.",
       effort: 4,
-      scores: [50, 55, 10, 90, 25, 95],
+      scores: [50, 55, 10, 90, 25, 97],
     },
     {
       id: "cilium_upgrade",
@@ -133,7 +133,7 @@
       dependency: "Rehearse in sre-test before each production step. Each sequential minor must be stable before proceeding. CNI upgrade requires careful traffic and policy validation.",
       proof: "Cilium 1.19 running in all clusters; WireGuard strict mode enabled; no network policy regressions in sre-test rehearsal; all workloads healthy post-upgrade.",
       effort: 5,
-      scores: [40, 70, 30, 75, 25, 95],
+      scores: [40, 70, 30, 75, 25, 96],
     },
     {
       id: "external_dns_migration",
@@ -149,7 +149,7 @@
       dependency: "Values schema migration mapping from bitnami to kubernetes-sigs chart format. DNS record validation after cutover.",
       proof: "external-dns running from kubernetes-sigs/external-dns chart; all DNS records reconciling correctly; bitnami chart removed from cluster.",
       effort: 2,
-      scores: [35, 50, 10, 60, 25, 55],
+      scores: [35, 50, 10, 60, 25, 72],
     },
     {
       id: "storage_class_gp3",
@@ -165,7 +165,7 @@
       dependency: "Per-workload migration plan for 17 gp2 PVCs and 40 eks-ssd PVCs. Helm chart updates for charts referencing legacy StorageClasses.",
       proof: "CSI gp3 StorageClass is cluster default; all new PVCs use ebs.csi.aws.com; legacy in-tree StorageClasses retired; zero new PVCs provisioned on gp2.",
       effort: 3,
-      scores: [55, 60, 35, 40, 85, 30],
+      scores: [55, 60, 35, 40, 85, 20],
     },
     {
       id: "helm_secret_bloat",
@@ -181,7 +181,7 @@
       dependency: "Investigate ai-kontrol 231-revision loop root cause before bulk pruning. Codefresh --history-max configuration access.",
       proof: "Helm release secret count below 200 total; --history-max enforced in Helm and Codefresh config; ai-kontrol loop root cause identified and resolved; ETCd size measurably reduced.",
       effort: 2,
-      scores: [50, 55, 10, 60, 55, 20],
+      scores: [50, 55, 10, 60, 55, 12],
     },
     {
       id: "graviton4_investigation",
@@ -197,7 +197,7 @@
       dependency: "CastAI template and nodegroup TF access. Per-workload EBS bandwidth profile analysis for x2gd replacement candidates.",
       proof: "CastAI template updated to prefer r8g/m8g families; at least one node pool rotating to Graviton4 with verified price-performance improvement documented.",
       effort: 2,
-      scores: [30, 55, 30, 25, 85, 10],
+      scores: [30, 55, 30, 25, 85, 5],
     },
     {
       id: "database_credentials",
@@ -213,7 +213,7 @@
       dependency: "Service inventory of all database credential consumers. Coordination with all service owners. Secrets Manager or equivalent rotation infrastructure.",
       proof: "Automated credential rotation running on 30-day schedule; all service teams confirmed consuming rotated credentials without manual intervention; rotation tested via simulated rotation event.",
       effort: 3,
-      scores: [50, 55, 10, 75, 25, 90],
+      scores: [50, 55, 10, 75, 25, 96],
     },
     {
       id: "supply_chain",
@@ -229,7 +229,7 @@
       dependency: "Artifactory-only enforcement policy. CI pipeline signing integration. Artifact signing key management.",
       proof: "AI component builds produce signed artifacts with traceable provenance; at least one Artifactory-enforced policy blocking unsigned images is active.",
       effort: 3,
-      scores: [50, 70, 35, 55, 25, 90],
+      scores: [50, 70, 35, 55, 25, 93],
     },
     {
       id: "gli_k8s_storage",
@@ -245,7 +245,7 @@
       dependency: "S3 Files production K8s CSI driver availability check. Coordination with MicroVM and Temporal agent teams on shared primitives.",
       proof: "Runbook documented and published; EFS mounts tear down cleanly in test (10 pod lifecycle runs, zero orphaned volumes); S3 Files spike completed.",
       effort: 4,
-      scores: [65, 85, 90, 70, 55, 45],
+      scores: [65, 85, 90, 70, 55, 38],
     },
     {
       id: "lambda_microvm_sandbox",
@@ -261,7 +261,7 @@
       dependency: "(a) Does MicroVM need private-resource access in POC (determines VPC egress connector timing). (b) AI-account IAM boundary vs. new cross-account role. Resolve both before Sprint A commit.",
       proof: "Sprint A: clean session launch→tool-calls→terminate verified; org key confirmed never landing on compute. Sprint B: default-deny egress validated; WAF and rotation active.",
       effort: 5,
-      scores: [80, 95, 98, 90, 65, 90],
+      scores: [80, 95, 98, 90, 65, 98],
     },
     {
       id: "igor_ebs_s3",
@@ -277,7 +277,7 @@
       dependency: "EBS CSI driver for Temporal pod mounts. S3 Files access from pod (check CSI driver GA status). Igor team workload I/O profile confirmation.",
       proof: "EBS volumes mounted successfully from Temporal pods for write-heavy workloads; S3 Files access working from World Model pods; I/O profiles validated against assumptions.",
       effort: 2,
-      scores: [65, 70, 75, 65, 65, 30],
+      scores: [65, 70, 75, 65, 65, 15],
     },
     {
       id: "cost_dashboard",
@@ -293,7 +293,7 @@
       dependency: "MicroVM sandbox deployed and emitting CloudWatch metrics (Lambda MicroVM ticket is a hard prerequisite — cannot be built meaningfully before that).",
       proof: "Grafana panel live beside SRE dashboards; running-MicroVM-count displayed in the Thursday AWS meeting; no orphaned sessions visible.",
       effort: 2,
-      scores: [70, 55, 50, 55, 70, 10],
+      scores: [70, 55, 50, 55, 70, 5],
     },
     {
       id: "observability_egress",
@@ -309,7 +309,7 @@
       dependency: "Kernel 6.1+ on AL2023 or Bottlerocket AMIs. Cilium 1.19 for Hubble integration (Cilium upgrade ticket is a dependency). CNI chaining mode validation.",
       proof: "Pod-identity-level egress logs visible in Grafana; a test pod's outbound traffic correctly attributed by namespace/pod; NAT gateway flow-log enrichment active and validated.",
       effort: 5,
-      scores: [55, 70, 55, 55, 25, 95],
+      scores: [55, 70, 55, 55, 25, 93],
     },
     {
       id: "capsule_helm_hygiene",
@@ -325,7 +325,7 @@
       dependency: "Exception owners available for documentation review. CI pipeline linter integration slot in sprint planning.",
       proof: "Both exceptions documented with owner, compensating control, and expiry date; linter enforced in CI; Helm change process published and linked from AGENTS.md.",
       effort: 2,
-      scores: [30, 40, 10, 15, 25, 50],
+      scores: [30, 40, 10, 15, 25, 45],
     },
     {
       id: "k8s_mcp_layer",
@@ -341,7 +341,7 @@
       dependency: "Scoped service account or assumed role setup. Audit logging infrastructure. Existing k8s-deploy-monitor skill as the data source reference implementation.",
       proof: "MCP server returns structured JSON for all five actions; machine auth working with no interactive cia login; audit log entries confirmed for caller, action, namespace, and timestamp.",
       effort: 3,
-      scores: [65, 88, 90, 70, 35, 55],
+      scores: [65, 88, 90, 70, 35, 58],
     },
     {
       id: "agent_triage_rca",
@@ -357,7 +357,7 @@
       dependency: "K8s MCP data layer (DEVOPS-4733) for live K8s signals. Codefresh and Grafana/CloudWatch MCP access. Existing triage skills as the orchestration primitives.",
       proof: "Draft post-mortem for the SRE-334 rollback incident generated from agent; structure matches timeline, root cause, and action items validated by the incident owner.",
       effort: 3,
-      scores: [70, 85, 80, 50, 45, 30],
+      scores: [70, 85, 80, 50, 45, 22],
     },
     {
       id: "sre_336_sandboxing",
@@ -373,7 +373,7 @@
       dependency: "Lambda MicroVM sandbox work for Lambda container scoping. K8s security context standards. WAF ACL configuration access.",
       proof: "Agent containers pass security review across all three scopes (Lambda, K8s, WAF); sandboxing controls documented as named SRE controls before 2026-07-31.",
       effort: 3,
-      scores: [70, 85, 80, 95, 45, 95],
+      scores: [70, 85, 80, 95, 45, 98],
     },
     {
       id: "sre_334_google_account",
@@ -389,7 +389,7 @@
       dependency: "Post-mortem completion by due date. Safe re-implementation plan reviewed by SRE and security before any production change.",
       proof: "Post-mortem published and linked in incident tracker; Google account/key management re-implemented and verified; no recurrence in 2-week observation window.",
       effort: 2,
-      scores: [55, 35, 10, 95, 25, 75],
+      scores: [55, 35, 10, 95, 25, 82],
     },
     {
       id: "sre_332_observability_actions",
@@ -405,7 +405,7 @@
       dependency: "K8s MCP data layer (DEVOPS-4733). Jira API integration. Brian's agent architecture and data schema requirements.",
       proof: "K8s observability actions return structured JSON; Brian's agent creates at least one valid, actionable Jira ticket from live cluster data before 2026-08-07.",
       effort: 3,
-      scores: [65, 85, 90, 88, 30, 50],
+      scores: [65, 85, 90, 88, 30, 58],
     },
     {
       id: "sre_312_nginx",
@@ -421,7 +421,7 @@
       dependency: "PR reviewer availability and staging environment validation slot after each merge.",
       proof: "All pending PRs merged; nginx migration complete in staging; no config drift from the production nginx pattern.",
       effort: 2,
-      scores: [50, 45, 10, 35, 25, 30],
+      scores: [50, 45, 10, 35, 25, 18],
     },
   ];
 
