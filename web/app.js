@@ -434,7 +434,7 @@
     principle.error = "";
     principle.running = false;
   });
-  initiatives.forEach((item) => { item.scoreReasons = {}; item.seedScores = [...item.scores]; item.overrides = {}; });
+  initiatives.forEach((item) => { item.scoreReasons = {}; item.seedScores = [...item.scores]; item.overrides = {}; item.seedEffort = item.effort; item.effortOverridden = false; });
 
   const inputs = names.map((name) => document.querySelector(`[data-weight="${name}"]`));
   let selected = initiatives[0].id;
@@ -515,6 +515,11 @@
             }
           });
         }
+        const ef = saved.effortOverrides && saved.effortOverrides[item.id];
+        if (Number.isInteger(ef) && ef >= 1 && ef <= 5) {
+          item.effort = ef;
+          item.effortOverridden = true;
+        }
       });
     } catch (_e) { localStorage.removeItem(SESSION_SCHEMA); }
   };
@@ -527,6 +532,7 @@
         notes,
         scenarios,
         overrides: Object.fromEntries(initiatives.map((item) => [item.id, item.overrides])),
+        effortOverrides: Object.fromEntries(initiatives.filter((item) => item.effortOverridden).map((item) => [item.id, item.effort])),
       }));
     } catch (_e) {}
   };
@@ -622,24 +628,67 @@
     return element;
   };
 
+  const OVERRIDE_COLORS = { red: "score-overridden", green: "score-override-green", yellow: "score-override-yellow", blue: "score-override-blue" };
+  const overrideColorMap = {}; // id:index → color key
+
+  const applyOverrideClass = (td, id, index) => {
+    const key = `${id}:${index}`;
+    const colorKey = overrideColorMap[key] || "red";
+    td.className = OVERRIDE_COLORS[colorKey] || "score-overridden";
+  };
+
   const scoreCell = (item, index) => {
     const td = document.createElement("td");
     const isOverridden = item.overrides[index] !== undefined;
-    if (isOverridden) td.className = "score-overridden";
+    if (isOverridden) applyOverrideClass(td, item.id, index);
     td.textContent = String(item.scores[index]);
-    td.title = "Click to override score";
-    td.addEventListener("click", (e) => {
-      e.stopPropagation();
+    td.title = "Double-click to override score";
+    td.addEventListener("dblclick", (e) => {
+      e.stopPropagation(); e.preventDefault();
       if (td.querySelector("input")) return;
+      let committed = false;
+      const wrap = document.createElement("div");
+      wrap.style.cssText = "display:flex;flex-direction:column;gap:5px;padding:2px 0;";
       const inp = document.createElement("input");
       inp.type = "number"; inp.min = "0"; inp.max = "100"; inp.step = "1";
       inp.value = String(item.scores[index]);
-      inp.className = "score-inline-input" + (item.overrides[index] !== undefined ? " overridden" : "");
-      inp.style.width = "44px";
+      inp.className = "score-inline-input";
+      inp.style.cssText = "width:52px;height:24px;font-size:13px;";
+      // Color picker strip
+      const colors = document.createElement("div");
+      colors.style.cssText = "display:flex;gap:4px;align-items:center;";
+      // "no color" = clear the override entirely
+      const noneBtn = document.createElement("button");
+      noneBtn.type = "button";
+      noneBtn.style.cssText = "width:18px;height:18px;border-radius:50%;border:1.5px solid rgba(255,255,255,.35);background:transparent;cursor:pointer;padding:0;position:relative;";
+      noneBtn.title = "clear";
+      noneBtn.innerHTML = '<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:rgba(255,255,255,.6);line-height:1;">×</span>';
+      noneBtn.addEventListener("mousedown", (ev) => {
+        // Use mousedown instead of click — fires before blur, avoids race
+        ev.stopPropagation(); ev.preventDefault();
+        committed = true;
+        delete item.overrides[index];
+        delete overrideColorMap[`${item.id}:${index}`];
+        item.scores[index] = item.baseScores ? item.baseScores[index] : item.seedScores[index];
+        // Immediately reset cell visuals
+        td.className = "";
+        td.textContent = String(item.scores[index]);
+        persistSession();
+        scheduleReorder();
+      });
+      colors.appendChild(noneBtn);
+      [["red","#7f1d1d"],["green","#14532d"],["yellow","#713f12"],["blue","#1e3a5f"]].forEach(([key, bg]) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.style.cssText = `width:18px;height:18px;border-radius:50%;border:1.5px solid rgba(255,255,255,.25);background:${bg};cursor:pointer;padding:0;`;
+        btn.title = key;
+        btn.addEventListener("click", (ev) => { ev.stopPropagation(); overrideColorMap[`${item.id}:${index}`] = key; });
+        colors.appendChild(btn);
+      });
+      wrap.append(inp, colors);
       td.textContent = "";
-      td.appendChild(inp);
+      td.appendChild(wrap);
       inp.focus(); inp.select();
-      let committed = false;
       const commit = () => {
         if (committed) return;
         committed = true;
@@ -648,18 +697,19 @@
           const rounded = Math.round(v);
           item.scores[index] = rounded;
           item.overrides[index] = rounded;
-          td.className = "score-overridden";
+          if (!overrideColorMap[`${item.id}:${index}`]) overrideColorMap[`${item.id}:${index}`] = "red";
           persistSession();
           scheduleReorder();
         }
-        td.textContent = String(item.scores[index]);
+        renderQueue();
       };
       inp.addEventListener("keydown", (ev) => {
         if (ev.key === "Enter") inp.blur();
-        if (ev.key === "Escape") { committed = true; td.textContent = String(item.scores[index]); }
+        if (ev.key === "Escape") { committed = true; renderQueue(); }
       });
-      inp.addEventListener("blur", commit);
+      inp.addEventListener("blur", () => setTimeout(commit, 100)); // delay so color click registers
       inp.addEventListener("click", (ev) => ev.stopPropagation());
+      wrap.addEventListener("click", (ev) => ev.stopPropagation());
     });
     return td;
   };
@@ -671,7 +721,8 @@
     ranked.forEach((item, index) => {
       const row = document.createElement("tr");
       row.dataset.id = item.id;
-      if (item.id === selected) row.className = "selected";
+      const hasNotes = notes[item.id] && notes[item.id].trim();
+      row.className = (item.id === selected ? "selected " : "") + (hasNotes ? "has-notes" : "");
       row.appendChild(cell(String(index + 1), "rank"));
 
       // Initiative cell: title + note dot + category + status chip
@@ -699,14 +750,71 @@
 
       row.appendChild(cell(item.horizon, `horizon ${item.horizon}`));
       item.scores.forEach((_, i) => row.appendChild(scoreCell(item, i)));
-      row.appendChild(cell(`${item.effort}/5`));
+
+      // Editable effort cell (dblclick to edit)
+      const effortTd = document.createElement("td");
+      effortTd.className = item.effortOverridden ? "score-overridden" : "";
+      effortTd.textContent = item.effort >= 5 ? "5*" : String(item.effort);
+      effortTd.title = item.effort >= 5 ? "Double-click to edit. 5 = needs breakdown." : `Double-click to edit. ${item.effort} point${item.effort > 1 ? "s" : ""} of effort.`;
+      effortTd.style.cssText = "cursor:pointer;font-variant-numeric:tabular-nums;";
+      effortTd.addEventListener("dblclick", (e) => {
+        e.stopPropagation(); e.preventDefault();
+        if (effortTd.querySelector("select")) return;
+        const sel = document.createElement("select");
+        sel.style.cssText = "width:56px;background:var(--input-bg);color:var(--ink);border:1px solid var(--line);border-radius:3px;font:inherit;font-size:12px;padding:1px;";
+        [1,2,3,4,5].forEach((v) => {
+          const opt = document.createElement("option");
+          opt.value = v; opt.textContent = v >= 5 ? "5 (split)" : `${v} pt${v > 1 ? "s" : ""}`;
+          if (v === item.effort) opt.selected = true;
+          sel.appendChild(opt);
+        });
+        effortTd.textContent = "";
+        effortTd.appendChild(sel);
+        sel.focus();
+        const commit = () => {
+          const v = parseInt(sel.value, 10);
+          if (v >= 1 && v <= 5) {
+            item.effort = v;
+            item.effortOverridden = true;
+            persistSession();
+          }
+          renderQueue();
+          const selItem = initiatives.find((it) => it.id === selected);
+          if (selItem) renderDetail(selItem);
+        };
+        sel.addEventListener("change", commit);
+        sel.addEventListener("blur", commit);
+        sel.addEventListener("click", (ev) => ev.stopPropagation());
+      });
+      row.appendChild(effortTd);
+
       row.appendChild(cell(weightedScore(item).toFixed(1), "score"));
+
+      // Running total placeholder — filled after all rows built
+      const runTd = document.createElement("td");
+      runTd.className = "running-total";
+      runTd.style.fontVariantNumeric = "tabular-nums";
+      row.appendChild(runTd);
+
       row.addEventListener("click", () => {
         selected = item.id;
-        renderQueue();
+        // Update selection in-place without rebuilding DOM (preserves dblclick targets)
+        body.querySelectorAll("tr").forEach((tr) => tr.classList.toggle("selected", tr.dataset.id === selected));
         renderDetail(item);
       });
       body.appendChild(row);
+    });
+
+    // Fill running totals (cumulative effort points, top to bottom)
+    let cumulative = 0;
+    ranked.forEach((item) => {
+      const pts = item.effort >= 5 ? 0 : item.effort; // 5="needs breakdown" doesn't count
+      cumulative += pts;
+      const runCell = body.querySelector(`tr[data-id="${item.id}"] .running-total`);
+      if (runCell) {
+        runCell.textContent = cumulative > 0 ? String(cumulative) : "—";
+        runCell.title = `${cumulative} cumulative effort points through rank ${Array.from(body.children).indexOf(runCell.parentElement) + 1}`;
+      }
     });
   };
 
@@ -819,7 +927,7 @@
     totalRow.className = "detail-score-cell detail-score-total";
     const totalLabel = document.createElement("span");
     totalLabel.className = "detail-score-name";
-    totalLabel.textContent = `Weighted total (effort ${item.effort}/5)`;
+    totalLabel.textContent = `Weighted total (effort: ${item.effort >= 5 ? "needs breakdown" : item.effort + " pt" + (item.effort > 1 ? "s" : "")})`;
     const totalVal = document.createElement("span");
     totalVal.className = "detail-score-value";
     totalVal.textContent = weightedScore(item).toFixed(1);
@@ -1562,13 +1670,16 @@
     const resetBtn = document.createElement("button");
     resetBtn.type = "button";
     resetBtn.className = "reset-overrides-btn";
-    resetBtn.textContent = "Reset overrides";
-    resetBtn.title = "Clear all manual score overrides and restore workspace scores";
+    resetBtn.textContent = "Clear all marks";
+    resetBtn.title = "Clear all score overrides, effort overrides, and color marks — restore everything to defaults";
     resetBtn.addEventListener("click", () => {
       initiatives.forEach((item) => {
         item.overrides = {};
         item.scores = [...item.baseScores];
+        item.effort = item.seedEffort;
+        item.effortOverridden = false;
       });
+      Object.keys(overrideColorMap).forEach((k) => delete overrideColorMap[k]);
       persistSession();
       render({ immediate: true });
       renderScenarioBar();
@@ -1656,6 +1767,57 @@
   document.querySelectorAll(".preset").forEach((button) => button.addEventListener("click", () => setPreset(button.dataset.preset)));
   document.querySelector("#reset").addEventListener("click", () => setPreset("balanced"));
   document.querySelector("#rerank").addEventListener("click", () => rankPrinciples());
+
+  // ── User-saved weight presets ─────────────────────────────────────────
+  const USER_PRESETS_KEY = "priority_foregrounds.user_presets/v1";
+  let userPresets = []; // [{name, weights:[...]}]
+  try { userPresets = JSON.parse(localStorage.getItem(USER_PRESETS_KEY) || "[]"); if (!Array.isArray(userPresets)) userPresets = []; } catch (_) { userPresets = []; }
+
+  const persistUserPresets = () => { try { localStorage.setItem(USER_PRESETS_KEY, JSON.stringify(userPresets)); } catch (_) {} };
+
+  const renderUserPresets = () => {
+    const container = document.getElementById("user-presets");
+    if (!container) return;
+    container.replaceChildren();
+    userPresets.forEach((preset, i) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "preset user-preset";
+      btn.title = `Load "${preset.name}" — weights: ${preset.weights.map(Math.round).join(", ")}`;
+      btn.textContent = preset.name;
+      btn.addEventListener("click", () => {
+        preset.weights.forEach((w, j) => { if (j < inputs.length) inputs[j].value = String(w); });
+        document.querySelectorAll(".preset").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        persistWorkspace();
+        render({ reorderPrinciples: true });
+      });
+
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "user-preset-del";
+      del.textContent = "×";
+      del.title = `Delete "${preset.name}"`;
+      del.addEventListener("click", (e) => {
+        e.stopPropagation();
+        userPresets.splice(i, 1);
+        persistUserPresets();
+        renderUserPresets();
+      });
+      btn.appendChild(del);
+      container.appendChild(btn);
+    });
+  };
+
+  document.getElementById("save-preset").addEventListener("click", () => {
+    const name = window.prompt("Preset name (e.g. \"David settings\"):");
+    if (!name || !name.trim()) return;
+    userPresets.push({ name: name.trim(), weights: inputs.map((inp) => Number(inp.value)) });
+    persistUserPresets();
+    renderUserPresets();
+  });
+
+  renderUserPresets();
   document.querySelectorAll("[data-edit-principle]").forEach((button) => button.addEventListener("click", () => openPrincipleEditor(button.dataset.editPrinciple)));
   document.querySelectorAll("[data-rescore-principle]").forEach((button) => button.addEventListener("click", () => rescorePrinciple(button.dataset.rescorePrinciple)));
   document.querySelector("#save-principle-prompt").addEventListener("click", () => { if (savePromptFromEditor()) editor.close(); });

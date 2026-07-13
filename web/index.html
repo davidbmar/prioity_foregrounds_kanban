@@ -54,7 +54,10 @@
               <button class="preset" data-preset="margin">Cost discipline</button>
               <button id="reset" class="icon-button" title="Reset principle weights" aria-label="Reset principle weights">&#8634;</button>
               <button id="rerank" class="preset" title="Re-order principles so highest-weighted appears first, second-highest second, etc." aria-label="Re-rank principles by weight">Re-rank ↕</button>
+              <span style="color:var(--line);margin:0 2px;">|</span>
+              <button id="save-preset" class="preset" title="Save current weights as a named preset">+ Save as...</button>
             </div>
+            <div id="user-presets" class="preset-row" style="margin-bottom:0;min-height:0;"></div>
           </div>
           <div class="principles-head" aria-hidden="true">
             <span>Rank</span><span>Principle</span><span>Priority weight</span><span></span>
@@ -142,7 +145,7 @@
         <div class="panel-body panel-body--flush">
           <div class="portfolio-wrap">
             <table>
-              <thead><tr><th>Rank</th><th>Initiative</th><th>Horizon</th><th>Customer</th><th>Compound</th><th>AI Infra</th><th>Urgency</th><th>Cost</th><th>Security</th><th>Effort</th><th>Total</th></tr></thead>
+              <thead><tr><th>Rank</th><th>Initiative</th><th>Horizon</th><th>Customer</th><th>Compound</th><th>AI Infra</th><th>Urgency</th><th>Cost</th><th>Security</th><th title="Effort points (1-4). 5 = needs breakdown. Double-click to edit.">Effort</th><th>Score</th><th title="Cumulative effort points from rank 1 down">Running</th></tr></thead>
               <tbody id="portfolio-body"></tbody>
             </table>
           </div>
