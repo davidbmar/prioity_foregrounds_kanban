@@ -4,6 +4,8 @@
   const STORE_SCHEMA = "priority_foregrounds.workspace/v4";
   const REQUEST_SCHEMA = "priority_foregrounds.rescore_request/v1";
   const RESULT_SCHEMA = "priority_foregrounds.rescore_result/v1";
+  const SESSION_SCHEMA = "priority_foregrounds.session/v1";
+  const STATUS_LABELS = { "blocked": "Blocked", "in-progress": "In Progress", "done": "Done", "deferred": "Deferred" };
   const names = ["customer", "leverage", "ai_leverage", "urgency", "cost", "security"];
   const presets = {
     balanced: [24, 20, 16, 14, 14, 12],
@@ -17,12 +19,12 @@
       prompt: "Score how directly the initiative solves an urgent, specific customer problem that a real buyer is likely to pay to resolve. A 5 has a short, credible path to observable customer value; a 1 is remote, speculative, or mainly internal convenience.",
     },
     leverage: {
-      name: "Strategic leverage",
-      prompt: "Score how much completing the initiative makes future products, releases, or decisions easier, faster, or safer. A 5 creates a reusable capability or removes a recurring constraint; a 1 is isolated work with little compounding value.",
+      name: "Compound return",
+      prompt: "Score how much completing this initiative is the single domino that makes future work easier, faster, or unnecessary — the \"One Thing\" that delivers disproportionate downstream value.\n\n90–100: Works ON the system, not IN it. Builds a reusable primitive — platform capability, shared library, automation framework, self-service tooling, or infrastructure pattern — that multiple future initiatives inherit without rework. Removes a recurring structural constraint, eliminates an entire class of toil, or creates a repeatable process that scales beyond the person or team who built it. After it ships, the next engineer to touch this area finds a paved road instead of a blank field.\n\n70–89: Creates meaningful downstream leverage. Unblocks several future initiatives, establishes a pattern others will copy, or replaces a manual process with a durable automated one. The compound return is real but scoped to one domain or team rather than organization-wide.\n\n40–69: Moderate compound value. Unblocks one or two downstream initiatives, or improves an existing process enough that future iterations are measurably faster, but does not create a broadly reusable asset or eliminate a structural bottleneck.\n\n10–39: Minor incidental reuse. The work might inform a future decision or produce a small artifact others reference, but the next similar problem will still require most of the same effort from scratch.\n\n0–9: Isolated task-work. Fixes one problem, for one workload, one time. Nothing else gets easier because it shipped.\n\nWhen scoring, ask: \"If we could only ship one initiative this quarter, would completing this one make everything else on the board easier or unnecessary?\" Score the honest answer to that question.",
     },
     ai_leverage: {
-      name: "AI Compounding",
-      prompt: "Score how directly this initiative advances AI's ability to do SRE work autonomously — the autonomy ratchet. The single question: once complete, can an AI agent do more of this class of work without human mediation?\n\n90–100 (Ratchet): Directly gives agents the ability to query cluster state, execute safely in isolation, observe and act on production signals, or orchestrate other agents. These are the primitives that let AI compound its own capabilities — MCP data layers, execution sandboxes, structured agent-callable actions, triage orchestration.\n\n60–89 (Compounding infrastructure): Builds infrastructure that AI workloads depend on but does not itself provide an agent-facing interface — isolated execution environments, storage for agent state, supply chain integrity for AI artifacts, observability feeds that agents consume.\n\n30–59 (AI-assisted): Produces data or structure AI can consume for analysis, but does not enable autonomous action. AI helps deliver the work; the outcome is still human-operated.\n\n10–29 (Incidental): AI can assist in drafting or analysis during delivery, but the completed work has no agent surface and does not compound.\n\n0–9 (No ratchet): Cost optimization, certificate rotation, config hygiene — agents neither query nor act on the result.",
+      name: "AI Infrastructure Leverage",
+      prompt: "Score how much the initiative creates or strengthens foundational AI infrastructure that multiplies future capability. A 5 builds a reusable primitive — compute sandboxes, data access layers, storage architecture, or agent frameworks — that multiple future AI capabilities depend on without rework; a 1 is isolated work that does not compound into reusable AI capability.",
     },
     urgency: {
       name: "Urgency",
@@ -53,7 +55,7 @@
       dependency: "PV zone affinity validation (kubectl get pv -o json | jq) before drain. Coordination with monitoring workload owners (Prometheus/Thanos with persistent volumes).",
       proof: "aws eks list-insights shows no kubelet version-skew warning; all 7 monitoring nodes replaced and running kubelet 1.34+. prd-internal nodes (~77 days old) reviewed and scheduled.",
       effort: 3,
-      scores: [45, 85, 5, 95, 60, 72],
+      scores: [45, 85, 10, 95, 60, 72],
     },
     {
       id: "eks_upgrade_135",
@@ -69,7 +71,7 @@
       dependency: "Blocked by kubelet 1.33 node replacement. Containerd 2.0 AMI readiness check during upgrade planning.",
       proof: "EKS control plane reports 1.35; all EKS upgrade insights pass; PreferSameNode visible in traffic distribution metrics.",
       effort: 3,
-      scores: [50, 90, 15, 85, 65, 75],
+      scores: [50, 90, 40, 85, 65, 75],
     },
     {
       id: "vpa_recommendation_mode",
@@ -85,7 +87,7 @@
       dependency: "EKS 1.35 for in-place resize features. VPA is already installed — only recommendation mode needs enabling.",
       proof: "VPA recommendations visible for monitoring and app workloads; at least 10 containers updated with evidence-backed limits; no OOM increase observed.",
       effort: 2,
-      scores: [55, 80, 38, 30, 75, 5],
+      scores: [55, 80, 60, 30, 75, 5],
     },
     {
       id: "cluster_optimization",
@@ -101,7 +103,7 @@
       dependency: "VPA recommendation mode enabled (requires EKS 1.35). CastAI node template access. prd-internal workload CPU profile documentation.",
       proof: "Node-level CPU:memory ratio measurably improved; monthly cluster cost reduced; prd-internal workloads on separate CPU-optimized pool; CastAI template updated.",
       effort: 4,
-      scores: [45, 65, 32, 25, 90, 5],
+      scores: [45, 65, 35, 25, 90, 5],
     },
     {
       id: "cert_manager_upgrade",
@@ -117,7 +119,7 @@
       dependency: "CRD backup before upgrade. sre-test rehearsal run through the documented upgrade path. Coordination with certificate consumers.",
       proof: "cert-manager 1.20.1 deployed in production; all 160 certificates healthy; sre-test upgrade rehearsed and documented.",
       effort: 4,
-      scores: [50, 55, 5, 90, 25, 97],
+      scores: [50, 55, 10, 90, 25, 97],
     },
     {
       id: "cilium_upgrade",
@@ -133,7 +135,7 @@
       dependency: "Rehearse in sre-test before each production step. Each sequential minor must be stable before proceeding. CNI upgrade requires careful traffic and policy validation.",
       proof: "Cilium 1.19 running in all clusters; WireGuard strict mode enabled; no network policy regressions in sre-test rehearsal; all workloads healthy post-upgrade.",
       effort: 5,
-      scores: [40, 70, 28, 75, 25, 96],
+      scores: [40, 70, 30, 75, 25, 96],
     },
     {
       id: "external_dns_migration",
@@ -149,7 +151,7 @@
       dependency: "Values schema migration mapping from bitnami to kubernetes-sigs chart format. DNS record validation after cutover.",
       proof: "external-dns running from kubernetes-sigs/external-dns chart; all DNS records reconciling correctly; bitnami chart removed from cluster.",
       effort: 2,
-      scores: [35, 50, 5, 60, 25, 72],
+      scores: [35, 50, 10, 60, 25, 72],
     },
     {
       id: "storage_class_gp3",
@@ -165,7 +167,7 @@
       dependency: "Per-workload migration plan for 17 gp2 PVCs and 40 eks-ssd PVCs. Helm chart updates for charts referencing legacy StorageClasses.",
       proof: "CSI gp3 StorageClass is cluster default; all new PVCs use ebs.csi.aws.com; legacy in-tree StorageClasses retired; zero new PVCs provisioned on gp2.",
       effort: 3,
-      scores: [55, 60, 10, 40, 85, 20],
+      scores: [55, 60, 35, 40, 85, 20],
     },
     {
       id: "helm_secret_bloat",
@@ -181,7 +183,7 @@
       dependency: "Investigate ai-kontrol 231-revision loop root cause before bulk pruning. Codefresh --history-max configuration access.",
       proof: "Helm release secret count below 200 total; --history-max enforced in Helm and Codefresh config; ai-kontrol loop root cause identified and resolved; ETCd size measurably reduced.",
       effort: 2,
-      scores: [50, 55, 14, 60, 55, 12],
+      scores: [50, 55, 10, 60, 55, 12],
     },
     {
       id: "graviton4_investigation",
@@ -197,7 +199,7 @@
       dependency: "CastAI template and nodegroup TF access. Per-workload EBS bandwidth profile analysis for x2gd replacement candidates.",
       proof: "CastAI template updated to prefer r8g/m8g families; at least one node pool rotating to Graviton4 with verified price-performance improvement documented.",
       effort: 2,
-      scores: [30, 55, 18, 25, 85, 5],
+      scores: [30, 55, 30, 25, 85, 5],
     },
     {
       id: "database_credentials",
@@ -213,7 +215,7 @@
       dependency: "Service inventory of all database credential consumers. Coordination with all service owners. Secrets Manager or equivalent rotation infrastructure.",
       proof: "Automated credential rotation running on 30-day schedule; all service teams confirmed consuming rotated credentials without manual intervention; rotation tested via simulated rotation event.",
       effort: 3,
-      scores: [50, 55, 5, 75, 25, 96],
+      scores: [50, 55, 10, 75, 25, 96],
     },
     {
       id: "supply_chain",
@@ -229,7 +231,7 @@
       dependency: "Artifactory-only enforcement policy. CI pipeline signing integration. Artifact signing key management.",
       proof: "AI component builds produce signed artifacts with traceable provenance; at least one Artifactory-enforced policy blocking unsigned images is active.",
       effort: 3,
-      scores: [50, 70, 52, 55, 25, 93],
+      scores: [50, 70, 35, 55, 25, 93],
     },
     {
       id: "gli_k8s_storage",
@@ -245,7 +247,7 @@
       dependency: "S3 Files production K8s CSI driver availability check. Coordination with MicroVM and Temporal agent teams on shared primitives.",
       proof: "Runbook documented and published; EFS mounts tear down cleanly in test (10 pod lifecycle runs, zero orphaned volumes); S3 Files spike completed.",
       effort: 4,
-      scores: [65, 85, 82, 70, 55, 38],
+      scores: [65, 85, 90, 70, 55, 38],
     },
     {
       id: "lambda_microvm_sandbox",
@@ -261,7 +263,7 @@
       dependency: "(a) Does MicroVM need private-resource access in POC (determines VPC egress connector timing). (b) AI-account IAM boundary vs. new cross-account role. Resolve both before Sprint A commit.",
       proof: "Sprint A: clean session launch→tool-calls→terminate verified; org key confirmed never landing on compute. Sprint B: default-deny egress validated; WAF and rotation active.",
       effort: 5,
-      scores: [80, 95, 97, 90, 65, 98],
+      scores: [80, 95, 98, 90, 65, 98],
     },
     {
       id: "igor_ebs_s3",
@@ -277,7 +279,7 @@
       dependency: "EBS CSI driver for Temporal pod mounts. S3 Files access from pod (check CSI driver GA status). Igor team workload I/O profile confirmation.",
       proof: "EBS volumes mounted successfully from Temporal pods for write-heavy workloads; S3 Files access working from World Model pods; I/O profiles validated against assumptions.",
       effort: 2,
-      scores: [65, 70, 72, 65, 65, 15],
+      scores: [65, 70, 75, 65, 65, 15],
     },
     {
       id: "cost_dashboard",
@@ -293,7 +295,7 @@
       dependency: "MicroVM sandbox deployed and emitting CloudWatch metrics (Lambda MicroVM ticket is a hard prerequisite — cannot be built meaningfully before that).",
       proof: "Grafana panel live beside SRE dashboards; running-MicroVM-count displayed in the Thursday AWS meeting; no orphaned sessions visible.",
       effort: 2,
-      scores: [70, 55, 48, 55, 70, 5],
+      scores: [70, 55, 50, 55, 70, 5],
     },
     {
       id: "observability_egress",
@@ -309,7 +311,7 @@
       dependency: "Kernel 6.1+ on AL2023 or Bottlerocket AMIs. Cilium 1.19 for Hubble integration (Cilium upgrade ticket is a dependency). CNI chaining mode validation.",
       proof: "Pod-identity-level egress logs visible in Grafana; a test pod's outbound traffic correctly attributed by namespace/pod; NAT gateway flow-log enrichment active and validated.",
       effort: 5,
-      scores: [55, 70, 65, 55, 25, 93],
+      scores: [55, 70, 55, 55, 25, 93],
     },
     {
       id: "capsule_helm_hygiene",
@@ -325,7 +327,7 @@
       dependency: "Exception owners available for documentation review. CI pipeline linter integration slot in sprint planning.",
       proof: "Both exceptions documented with owner, compensating control, and expiry date; linter enforced in CI; Helm change process published and linked from AGENTS.md.",
       effort: 2,
-      scores: [30, 40, 5, 15, 25, 45],
+      scores: [30, 40, 10, 15, 25, 45],
     },
     {
       id: "k8s_mcp_layer",
@@ -341,7 +343,7 @@
       dependency: "Scoped service account or assumed role setup. Audit logging infrastructure. Existing k8s-deploy-monitor skill as the data source reference implementation.",
       proof: "MCP server returns structured JSON for all five actions; machine auth working with no interactive cia login; audit log entries confirmed for caller, action, namespace, and timestamp.",
       effort: 3,
-      scores: [65, 88, 95, 70, 35, 58],
+      scores: [65, 88, 90, 70, 35, 58],
     },
     {
       id: "agent_triage_rca",
@@ -357,7 +359,7 @@
       dependency: "K8s MCP data layer (DEVOPS-4733) for live K8s signals. Codefresh and Grafana/CloudWatch MCP access. Existing triage skills as the orchestration primitives.",
       proof: "Draft post-mortem for the SRE-334 rollback incident generated from agent; structure matches timeline, root cause, and action items validated by the incident owner.",
       effort: 3,
-      scores: [70, 85, 90, 50, 45, 22],
+      scores: [70, 85, 80, 50, 45, 22],
     },
     {
       id: "sre_336_sandboxing",
@@ -373,7 +375,7 @@
       dependency: "Lambda MicroVM sandbox work for Lambda container scoping. K8s security context standards. WAF ACL configuration access.",
       proof: "Agent containers pass security review across all three scopes (Lambda, K8s, WAF); sandboxing controls documented as named SRE controls before 2026-07-31.",
       effort: 3,
-      scores: [70, 85, 85, 95, 45, 98],
+      scores: [70, 85, 80, 95, 45, 98],
     },
     {
       id: "sre_334_google_account",
@@ -389,7 +391,7 @@
       dependency: "Post-mortem completion by due date. Safe re-implementation plan reviewed by SRE and security before any production change.",
       proof: "Post-mortem published and linked in incident tracker; Google account/key management re-implemented and verified; no recurrence in 2-week observation window.",
       effort: 2,
-      scores: [55, 35, 5, 95, 25, 82],
+      scores: [55, 35, 10, 95, 25, 82],
     },
     {
       id: "sre_332_observability_actions",
@@ -405,7 +407,7 @@
       dependency: "K8s MCP data layer (DEVOPS-4733). Jira API integration. Brian's agent architecture and data schema requirements.",
       proof: "K8s observability actions return structured JSON; Brian's agent creates at least one valid, actionable Jira ticket from live cluster data before 2026-08-07.",
       effort: 3,
-      scores: [65, 85, 93, 88, 30, 58],
+      scores: [65, 85, 90, 88, 30, 58],
     },
     {
       id: "sre_312_nginx",
@@ -421,7 +423,7 @@
       dependency: "PR reviewer availability and staging environment validation slot after each merge.",
       proof: "All pending PRs merged; nginx migration complete in staging; no config drift from the production nginx pattern.",
       effort: 2,
-      scores: [50, 45, 5, 35, 25, 18],
+      scores: [50, 45, 10, 35, 25, 18],
     },
   ];
 
@@ -432,11 +434,15 @@
     principle.error = "";
     principle.running = false;
   });
-  initiatives.forEach((item) => { item.scoreReasons = {}; });
+  initiatives.forEach((item) => { item.scoreReasons = {}; item.seedScores = [...item.scores]; item.overrides = {}; });
 
   const inputs = names.map((name) => document.querySelector(`[data-weight="${name}"]`));
   let selected = initiatives[0].id;
   let activePrinciple = "";
+  let statuses = {};
+  let notes = {};
+  let scenarios = [];
+  const noteTimers = {};
 
   const validScores = (scores) => Array.isArray(scores)
     && scores.length === names.length
@@ -489,6 +495,40 @@
     } catch (_error) {
       // Browser storage is optional; the current view remains authoritative.
     }
+  };
+
+  const loadSession = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SESSION_SCHEMA) || "null");
+      if (!saved || saved.schema !== SESSION_SCHEMA) return;
+      statuses = saved.statuses || {};
+      notes = saved.notes || {};
+      scenarios = Array.isArray(saved.scenarios) ? saved.scenarios : [];
+      initiatives.forEach((item) => {
+        const ov = saved.overrides && saved.overrides[item.id];
+        if (ov && typeof ov === "object") {
+          Object.entries(ov).forEach(([k, v]) => {
+            const i = Number(k);
+            if (i >= 0 && i < names.length && Number.isInteger(v) && v >= 0 && v <= 100) {
+              item.scores[i] = v;
+              item.overrides[i] = v;
+            }
+          });
+        }
+      });
+    } catch (_e) { localStorage.removeItem(SESSION_SCHEMA); }
+  };
+
+  const persistSession = () => {
+    try {
+      localStorage.setItem(SESSION_SCHEMA, JSON.stringify({
+        schema: SESSION_SCHEMA,
+        statuses,
+        notes,
+        scenarios,
+        overrides: Object.fromEntries(initiatives.map((item) => [item.id, item.overrides])),
+      }));
+    } catch (_e) {}
   };
 
   const weightedScore = (item) => {
@@ -546,7 +586,8 @@
     if (activePrinciple) document.querySelector("#principle-prompt-meta").textContent = principleStatus(activePrinciple).text;
   };
 
-  const rankPrinciples = () => {
+  // Update rank badges without reordering the DOM
+  const updateRankBadges = () => {
     const container = document.querySelector("#principle-controls");
     const ranked = names
       .map((name, index) => ({ name, index, value: Number(inputs[index].value) }))
@@ -558,8 +599,20 @@
       row.dataset.rank = String(rank);
       badge.textContent = `#${rank}`;
       badge.setAttribute("aria-label", `Principle rank ${rank}`);
+    });
+  };
+
+  // Actually reorder the DOM (only on explicit button click)
+  const rankPrinciples = () => {
+    const container = document.querySelector("#principle-controls");
+    const ranked = names
+      .map((name, index) => ({ name, index, value: Number(inputs[index].value) }))
+      .sort((a, b) => b.value - a.value || a.index - b.index);
+    ranked.forEach((item) => {
+      const row = container.querySelector(`[data-principle="${item.name}"]`);
       container.appendChild(row);
     });
+    updateRankBadges();
   };
 
   const cell = (text, className = "") => {
@@ -567,6 +620,48 @@
     element.textContent = text;
     if (className) element.className = className;
     return element;
+  };
+
+  const scoreCell = (item, index) => {
+    const td = document.createElement("td");
+    const isOverridden = item.overrides[index] !== undefined;
+    if (isOverridden) td.className = "score-overridden";
+    td.textContent = String(item.scores[index]);
+    td.title = "Click to override score";
+    td.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (td.querySelector("input")) return;
+      const inp = document.createElement("input");
+      inp.type = "number"; inp.min = "0"; inp.max = "100"; inp.step = "1";
+      inp.value = String(item.scores[index]);
+      inp.className = "score-inline-input" + (item.overrides[index] !== undefined ? " overridden" : "");
+      inp.style.width = "44px";
+      td.textContent = "";
+      td.appendChild(inp);
+      inp.focus(); inp.select();
+      let committed = false;
+      const commit = () => {
+        if (committed) return;
+        committed = true;
+        const v = parseInt(inp.value, 10);
+        if (!isNaN(v) && v >= 0 && v <= 100) {
+          const rounded = Math.round(v);
+          item.scores[index] = rounded;
+          item.overrides[index] = rounded;
+          td.className = "score-overridden";
+          persistSession();
+          scheduleReorder();
+        }
+        td.textContent = String(item.scores[index]);
+      };
+      inp.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter") inp.blur();
+        if (ev.key === "Escape") { committed = true; td.textContent = String(item.scores[index]); }
+      });
+      inp.addEventListener("blur", commit);
+      inp.addEventListener("click", (ev) => ev.stopPropagation());
+    });
+    return td;
   };
 
   const renderQueue = () => {
@@ -578,16 +673,32 @@
       row.dataset.id = item.id;
       if (item.id === selected) row.className = "selected";
       row.appendChild(cell(String(index + 1), "rank"));
+
+      // Initiative cell: title + note dot + category + status chip
       const identity = document.createElement("td");
       identity.className = "initiative";
       const title = document.createElement("b");
-      const category = document.createElement("small");
       title.textContent = item.name;
+      if (notes[item.id] && notes[item.id].trim()) {
+        const dot = document.createElement("span");
+        dot.className = "note-dot";
+        dot.title = notes[item.id];
+        title.appendChild(dot);
+      }
+      const category = document.createElement("small");
       category.textContent = item.category;
+      const status = statuses[item.id];
+      if (status) {
+        const chip = document.createElement("span");
+        chip.className = `status-chip ${status}`;
+        chip.textContent = STATUS_LABELS[status];
+        category.appendChild(chip);
+      }
       identity.append(title, category);
       row.appendChild(identity);
+
       row.appendChild(cell(item.horizon, `horizon ${item.horizon}`));
-      item.scores.forEach((value) => row.appendChild(cell(String(value))));
+      item.scores.forEach((_, i) => row.appendChild(scoreCell(item, i)));
       row.appendChild(cell(`${item.effort}/5`));
       row.appendChild(cell(weightedScore(item).toFixed(1), "score"));
       row.addEventListener("click", () => {
@@ -643,23 +754,64 @@
     scoreGridLabel.textContent = "Principle scores";
     scoreGrid.appendChild(scoreGridLabel);
     names.forEach((name, index) => {
-      const score = item.scores[index];
       const cell = document.createElement("div");
       cell.className = "detail-score-cell";
+
       const pname = document.createElement("span");
       pname.className = "detail-score-name";
       pname.textContent = principles[name].name;
-      const val = document.createElement("span");
-      val.className = "detail-score-value";
-      val.textContent = String(score);
+
+      // ── Stepper control ──────────────────────────────────────────────
+      const stepper = document.createElement("div");
+      const isOverridden = item.overrides[index] !== undefined;
+      stepper.className = "score-stepper" + (isOverridden ? " overridden" : "");
+
+      const btnDown = document.createElement("button");
+      btnDown.type = "button";
+      btnDown.className = "score-step-btn";
+      btnDown.textContent = "−";
+      btnDown.title = `Decrease ${principles[name].name} by 5`;
+      btnDown.setAttribute("aria-label", `Decrease ${principles[name].name} score by 5`);
+
+      const inp = document.createElement("input");
+      inp.type = "number";
+      inp.className = "score-inline-input";
+      inp.min = "0"; inp.max = "100"; inp.step = "1";
+      inp.value = String(item.scores[index]);
+      inp.setAttribute("aria-label", `${principles[name].name} score`);
+
+      const btnUp = document.createElement("button");
+      btnUp.type = "button";
+      btnUp.className = "score-step-btn";
+      btnUp.textContent = "+";
+      btnUp.title = `Increase ${principles[name].name} by 5`;
+      btnUp.setAttribute("aria-label", `Increase ${principles[name].name} score by 5`);
+
+      const applyScore = (v) => {
+        const rounded = Math.min(100, Math.max(0, Math.round(v)));
+        item.scores[index] = rounded;
+        item.overrides[index] = rounded;
+        persistWorkspace();
+        persistSession();
+        scheduleReorder();
+        renderDetail(item); // re-render to refresh total + security badge + override highlight
+      };
+
+      btnDown.addEventListener("click", (e) => { e.stopPropagation(); applyScore(item.scores[index] - 5); });
+      btnUp.addEventListener("click",   (e) => { e.stopPropagation(); applyScore(item.scores[index] + 5); });
+      inp.addEventListener("change",    (e) => { e.stopPropagation(); const v = parseInt(inp.value, 10); if (!isNaN(v)) applyScore(v); });
+      inp.addEventListener("click",     (e) => e.stopPropagation()); // don't trigger row select
+
+      stepper.append(btnDown, inp, btnUp);
+
       if (name === "security") {
-        const band = securityBand(score);
+        const band = securityBand(item.scores[index]);
         const badge = document.createElement("span");
         badge.className = `detail-sec-badge ${band.cls}`;
         badge.textContent = band.label;
-        cell.append(pname, val, badge);
+        cell.append(pname, stepper, badge);
       } else {
-        cell.append(pname, val);
+        cell.append(pname, stepper);
       }
       scoreGrid.appendChild(cell);
     });
@@ -677,6 +829,55 @@
 
     const side = document.createElement("div");
     side.className = "detail-side";
+
+    // ── Status picker ────────────────────────────────────────────────────
+    const statusLabel = document.createElement("div");
+    statusLabel.className = "label";
+    statusLabel.textContent = "Team status";
+    const picker = document.createElement("div");
+    picker.className = "status-picker";
+    [["blocked", "Blocked"], ["in-progress", "In Progress"], ["done", "Done"], ["deferred", "Deferred"]].forEach(([key, label]) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = `status-pick-btn ${key}${statuses[item.id] === key ? " active" : ""}`;
+      btn.textContent = label;
+      btn.addEventListener("click", () => {
+        statuses[item.id] = statuses[item.id] === key ? "" : key;
+        persistSession();
+        renderQueue();
+        renderDetail(item);
+      });
+      picker.appendChild(btn);
+    });
+    if (statuses[item.id]) {
+      const clearBtn = document.createElement("button");
+      clearBtn.type = "button";
+      clearBtn.className = "status-pick-btn clear-status";
+      clearBtn.textContent = "× Clear";
+      clearBtn.addEventListener("click", () => { statuses[item.id] = ""; persistSession(); renderQueue(); renderDetail(item); });
+      picker.appendChild(clearBtn);
+    }
+    side.append(statusLabel, picker);
+
+    // ── Meeting notes ────────────────────────────────────────────────────
+    const notesWrap = document.createElement("div");
+    notesWrap.className = "session-notes-wrap";
+    const notesLabel = document.createElement("label");
+    notesLabel.className = "session-notes-label";
+    notesLabel.textContent = "Meeting notes";
+    const notesInput = document.createElement("textarea");
+    notesInput.className = "session-notes-input";
+    notesInput.placeholder = "Type notes for this item...";
+    notesInput.value = notes[item.id] || "";
+    notesInput.addEventListener("input", () => {
+      notes[item.id] = notesInput.value;
+      clearTimeout(noteTimers[item.id]);
+      noteTimers[item.id] = setTimeout(() => { persistSession(); renderQueue(); }, 800);
+    });
+    notesInput.addEventListener("click", (e) => e.stopPropagation());
+    notesWrap.append(notesLabel, notesInput);
+    side.appendChild(notesWrap);
+
     const dependencyLabel = document.createElement("div");
     dependencyLabel.className = "label";
     dependencyLabel.textContent = "Dependency";
@@ -722,13 +923,77 @@
     root.append(main, side);
   };
 
-  const render = ({ reorderPrinciples = false } = {}) => {
+  // ── Deferred reorder (3-second debounce with countdown indicator) ──────
+  const REORDER_DELAY = 3000;
+  let reorderTimer = null;
+
+  const getOrCreateIndicator = () => {
+    let el = document.getElementById("reorder-indicator");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "reorder-indicator";
+      el.className = "reorder-indicator";
+      el.hidden = true;
+      const hdr = document.querySelector("#queue .panel-header-right");
+      if (hdr) hdr.prepend(el);
+    }
+    return el;
+  };
+
+  const showCountdown = () => {
+    const el = getOrCreateIndicator();
+    el.hidden = false;
+    let secs = REORDER_DELAY / 1000;
+    const update = () => {
+      el.innerHTML =
+        `<svg class="reorder-clock-svg" viewBox="0 0 20 20" aria-hidden="true">` +
+        `<circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="1.5"/>` +
+        `<line x1="10" y1="10" x2="10" y2="3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"` +
+        ` style="transform-origin:10px 10px;transform:rotate(${(1 - secs / (REORDER_DELAY / 1000)) * 360}deg)"/>` +
+        `<line x1="10" y1="10" x2="14.5" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"` +
+        ` style="transform-origin:10px 10px;transform:rotate(${(1 - secs / (REORDER_DELAY / 1000)) * 360 * 12}deg)"/>` +
+        `</svg> Reordering in <strong>${secs}</strong>s`;
+    };
+    update();
+    clearInterval(el._tick);
+    el._tick = setInterval(() => {
+      secs = Math.max(0, secs - 1);
+      update();
+      if (secs <= 0) clearInterval(el._tick);
+    }, 1000);
+  };
+
+  const hideCountdown = () => {
+    const el = document.getElementById("reorder-indicator");
+    if (!el) return;
+    clearInterval(el._tick);
+    el.hidden = true;
+  };
+
+  const scheduleReorder = () => {
+    showCountdown();
+    clearTimeout(reorderTimer);
+    reorderTimer = setTimeout(() => {
+      hideCountdown();
+      renderQueue();
+      updateConstellation();
+    }, REORDER_DELAY);
+  };
+
+  const render = ({ reorderPrinciples = false, immediate = false } = {}) => {
     inputs.forEach((input, index) => { document.querySelector(`#o-${names[index]}`).value = weightLabel(input.value); });
     const allocated = inputs.reduce((sum, input) => sum + Number(input.value), 0);
-    document.querySelector("#allocation").textContent = `${weightLabel(allocated)} / 100`;
-    if (reorderPrinciples) rankPrinciples();
+    document.querySelector("#allocation").textContent = `Priority budget: ${weightLabel(allocated)} / 100 allocated`;
+    if (reorderPrinciples) updateRankBadges();
     renderPrincipleStatuses();
-    renderQueue();
+    if (immediate) {
+      clearTimeout(reorderTimer);
+      hideCountdown();
+      renderQueue();
+      updateConstellation();
+    } else {
+      scheduleReorder();
+    }
   };
 
   const setPreset = (name) => {
@@ -764,7 +1029,7 @@
     principles[activePrinciple].error = "";
     promptError.hidden = true;
     persistWorkspace();
-    render();
+    render({ immediate: true });
     return true;
   };
 
@@ -798,7 +1063,7 @@
     if (principle.running) return false;
     principle.running = true;
     principle.error = "";
-    render();
+    render({ immediate: true });
     let succeeded = false;
     try {
       const response = await fetch("/api/rescore", {
@@ -816,6 +1081,7 @@
         const scored = byId.get(item.id);
         item.scores[column] = scored.score;
         item.scoreReasons[name] = scored.reason.trim();
+        delete item.overrides[column]; // AI ownership clears manual override for this column
       });
       principle.scoredPrompt = principle.prompt;
       principle.provenance = {
@@ -826,12 +1092,13 @@
         result_hash: result.result_hash,
       };
       persistWorkspace();
+      persistSession();
       succeeded = true;
     } catch (error) {
       principle.error = String(error && error.message ? error.message : error).slice(0, 180);
     } finally {
       principle.running = false;
-      render();
+      render({ immediate: true });
       renderDetail(initiatives.find((item) => item.id === selected));
       if (activePrinciple === name) {
         promptError.textContent = principle.error;
@@ -863,6 +1130,495 @@
     document.querySelector("#cost-guardrail").textContent = `Daily review threshold: ${money(daily * 1.2 + fixed / 30)}. This is 120% of modeled daily operating spend, not an automatic provider shutoff.`;
   };
 
+  // ── Constellation visualization (3D Canvas renderer) ─────────────────
+  const HORIZON_COLOR = { now: "#2dd4a0", next: "#5aabf5", later: "#7a9ab0", parked: "#f07070" };
+  const HORIZON_GLOW  = { now: "#14b880", next: "#3d8ed6", later: "#4e6d80", parked: "#d04040" };
+  const CLUSTER_COLOR = {
+    "SRE / Infrastructure": "#58a6ff",
+    "SRE / Security":       "#f778ba",
+    "SRE / AI Platform":    "#bc8cff",
+    "Cost / SRE":           "#d29922",
+    "SRE / Supply Chain":   "#3fb950",
+    "SRE / Performance":    "#58a6ff",
+    "SRE / Compliance":     "#8b949e",
+  };
+
+  const initConstellation = () => {
+    const panel = document.getElementById("constellation-inner");
+    if (!panel) return;
+    const cPanel = document.getElementById("constellation-panel");
+
+    // ── Canvas setup ────────────────────────────────────────────────────
+    const canvas = document.createElement("canvas");
+    canvas.style.cssText = "width:100%;height:100%;display:block;cursor:grab;";
+    panel.appendChild(canvas);
+    const ctx = canvas.getContext("2d");
+    let CW = 0, CH = 0, DPR = 1;
+    const resize = () => { DPR = Math.min(devicePixelRatio || 1, 2); CW = panel.clientWidth; CH = panel.clientHeight; canvas.width = CW * DPR; canvas.height = CH * DPR; canvas.style.width = CW + "px"; canvas.style.height = CH + "px"; };
+    resize(); window.addEventListener("resize", resize);
+
+    // ── Color helpers ───────────────────────────────────────────────────
+    const hexRgb = (h) => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+    const rgba = (hex, a) => { const [r,g,b] = hexRgb(hex); return `rgba(${r},${g},${b},${Math.max(0,Math.min(1,a))})`; };
+    const mixHex = (a, b, t) => { const A=hexRgb(a), B=hexRgb(b); return "#"+A.map((v,i)=>Math.round(v+(B[i]-v)*t).toString(16).padStart(2,"0")).join(""); };
+    const wScore = (item) => weightedScore(item);
+    // Star size = rank-based (top-ranked = biggest, bottom = smallest)
+    const starR = (item) => {
+      const ranked = [...initiatives].sort((a, b) => weightedScore(b) - weightedScore(a));
+      const rank = ranked.indexOf(item);
+      const t = 1 - rank / Math.max(1, ranked.length - 1); // 1=top, 0=bottom
+      return 1.5 + t * 6.5; // range 1.5 to 8
+    };
+    // Star color = category/cluster color (maps to which principles dominate that category)
+    const starColor = (item) => {
+      const s = wScore(item);
+      const base = CLUSTER_COLOR[item.category] || "#5aabf5";
+      if (s >= 62) return mixHex(base, "#ffffff", 0.45); // bright version for top stars
+      if (s >= 50) return mixHex(base, "#ffffff", 0.25);
+      return base;
+    };
+    const shortLabel = (name) => name.replace(/^(COST[:/]?\s*|SRE-\d+[:/]?\s*|Igor[:/]?\s*|GLI[:/]?\s*|Lambda\s|Agent-Assisted\s|Supply Chain\s)/i, "").replace(/\s*\([^)]*\)\s*$/, "").trim().slice(0, 30);
+
+    // ── 3D anchors per category (on a sphere — golden angle) ────────────
+    const catKeys = [...new Set(initiatives.map((d) => d.category))];
+    const anchorFor = (ci) => {
+      const n = catKeys.length, t = (ci + 0.5) / n;
+      const phi = Math.acos(1 - 2 * t), theta = Math.PI * (1 + Math.sqrt(5)) * ci, R = 280;
+      return { x: R * Math.sin(phi) * Math.cos(theta), y: R * 0.6 * Math.cos(phi), z: R * Math.sin(phi) * Math.sin(theta) };
+    };
+
+    // ── Build 3D nodes ──────────────────────────────────────────────────
+    const nodes3d = initiatives.map((item) => {
+      const ci = catKeys.indexOf(item.category);
+      const a = anchorFor(ci);
+      return {
+        item, id: item.id, cat: item.category,
+        x: a.x + (Math.random() - 0.5) * 130, y: a.y + (Math.random() - 0.5) * 130, z: a.z + (Math.random() - 0.5) * 130,
+        vx: 0, vy: 0, vz: 0, sx: 0, sy: 0, ss: 0, sz: 1,
+        phase: Math.random() * Math.PI * 2, tw: 0.5 + Math.random() * 1.1,
+      };
+    });
+    const byId3d = Object.fromEntries(nodes3d.map((n) => [n.id, n]));
+
+    // ── Similarity links ────────────────────────────────────────────────
+    const cosSim = (a, b) => { const ws = inputs.map((inp) => Number(inp.value)); const tot = ws.reduce((s, w) => s + w, 0) || 1; const va = a.scores.map((s, i) => (s/100)*(ws[i]/tot)); const vb = b.scores.map((s, i) => (s/100)*(ws[i]/tot)); const dot = va.reduce((s,v,i) => s+v*vb[i], 0); const mA = Math.sqrt(va.reduce((s,v) => s+v*v, 0)); const mB = Math.sqrt(vb.reduce((s,v) => s+v*v, 0)); return mA && mB ? dot/(mA*mB) : 0; };
+    let edges3d = [];
+    const rebuildLinks = () => {
+      edges3d = [];
+      for (let i = 0; i < initiatives.length; i++) for (let j = i + 1; j < initiatives.length; j++) {
+        const s = cosSim(initiatives[i], initiatives[j]);
+        if (s >= 0.88) edges3d.push({ a: byId3d[initiatives[i].id], b: byId3d[initiatives[j].id], sim: s, cross: initiatives[i].category !== initiatives[j].category });
+      }
+    };
+    rebuildLinks();
+
+    // ── MST per category (constellation skeleton) ───────────────────────
+    const familyMST = (cat) => {
+      const fn = nodes3d.filter((n) => n.cat === cat);
+      if (fn.length < 2) return [];
+      const inTree = [fn[0]], out = fn.slice(1), lines = [];
+      while (out.length) {
+        let best = null, bi = -1, bd = Infinity;
+        for (let i = 0; i < out.length; i++) for (const t of inTree) {
+          const d = (out[i].x-t.x)**2 + (out[i].y-t.y)**2 + (out[i].z-t.z)**2;
+          if (d < bd) { bd = d; best = t; bi = i; }
+        }
+        lines.push([best, out[bi]]); inTree.push(out[bi]); out.splice(bi, 1);
+      }
+      return lines;
+    };
+
+    // ── 3D camera ───────────────────────────────────────────────────────
+    const cam = { yaw: -0.4, pitch: 0.18, dist: 820, fov: 750, target: { x: 0, y: 0, z: 0 } };
+    let lastInteract = 0;
+
+    const project = (px, py, pz) => {
+      const cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw), cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+      const x = px - cam.target.x, y = py - cam.target.y, z = pz - cam.target.z;
+      const x1 = x * cy - z * sy, z1 = x * sy + z * cy, y2 = y * cp - z1 * sp, z2 = y * sp + z1 * cp;
+      const zc = z2 + cam.dist;
+      if (zc < 50) return null;
+      const s = cam.fov / zc;
+      return { x: CW / 2 + x1 * s, y: CH / 2 + y2 * s, s, z: zc };
+    };
+    const depthFade = (z) => Math.max(0.25, Math.min(1, 1.5 - z / (cam.dist * 1.6)));
+
+    // ── Background dust (parallax) ──────────────────────────────────────
+    const dust = [];
+    for (let i = 0; i < 450; i++) dust.push({ ax: Math.random()*Math.PI*2, ay: (Math.random()-0.5)*Math.PI, depth: 0.3+Math.random()*0.7, s: Math.random()*0.65+0.2, a: 0.03+Math.random()*0.2, warm: Math.random()<0.25, ph: Math.random()*Math.PI*2 });
+
+    // ── 3D physics tick ─────────────────────────────────────────────────
+    const physicsTick = () => {
+      const REPEL = 2800, DAMP = 0.85;
+      for (let i = 0; i < nodes3d.length; i++) {
+        const n = nodes3d[i];
+        for (let j = i + 1; j < nodes3d.length; j++) {
+          const m = nodes3d[j];
+          let dx = n.x-m.x, dy = n.y-m.y, dz = n.z-m.z, d2 = dx*dx+dy*dy+dz*dz;
+          if (d2 < 1) { dx = Math.random()-0.5; dy = Math.random()-0.5; dz = Math.random()-0.5; d2 = 1; }
+          if (d2 > 180000) continue;
+          const d = Math.sqrt(d2), f = REPEL / d2;
+          const fx = dx/d*f, fy = dy/d*f, fz = dz/d*f;
+          n.vx += fx; n.vy += fy; n.vz += fz; m.vx -= fx; m.vy -= fy; m.vz -= fz;
+        }
+        const a = anchorFor(catKeys.indexOf(n.cat));
+        n.vx += (a.x - n.x) * 0.008; n.vy += (a.y - n.y) * 0.008; n.vz += (a.z - n.z) * 0.008;
+      }
+      edges3d.forEach((e) => {
+        const rest = e.cross ? 260 : (e.sim > 0.95 ? 55 : 90);
+        const k = e.cross ? 0.004 : 0.015 * (e.sim > 0.95 ? 1.1 : 0.7);
+        const dx = e.b.x-e.a.x, dy = e.b.y-e.a.y, dz = e.b.z-e.a.z;
+        const d = Math.max(1, Math.hypot(dx, dy, dz)), f = (d - rest) * k;
+        const fx = dx/d*f, fy = dy/d*f, fz = dz/d*f;
+        e.a.vx += fx; e.a.vy += fy; e.a.vz += fz; e.b.vx -= fx; e.b.vy -= fy; e.b.vz -= fz;
+      });
+      nodes3d.forEach((n) => {
+        n.vx *= DAMP; n.vy *= DAMP; n.vz *= DAMP;
+        const sp = Math.hypot(n.vx, n.vy, n.vz); if (sp > 10) { const s = 10/sp; n.vx *= s; n.vy *= s; n.vz *= s; }
+        n.x += n.vx; n.y += n.vy; n.z += n.vz;
+      });
+    };
+
+    // ── Mouse / touch interaction ───────────────────────────────────────
+    let orbiting = false, panning = false, lastMouse = { x: 0, y: 0 }, hoverNode = null;
+    const nodeAt = (sx, sy) => { let best = null, bd = Infinity; nodes3d.forEach((n) => { if (!n.ss) return; const d = Math.hypot(n.sx-sx, n.sy-sy); const hit = Math.max(10, starR(n.item)*n.ss+6); if (d < hit && d < bd) { bd = d; best = n; } }); return best; };
+
+    canvas.addEventListener("mousedown", (e) => { if (e.shiftKey || e.button === 2) panning = true; else orbiting = true; lastMouse = { x: e.clientX, y: e.clientY }; canvas.style.cursor = "grabbing"; lastInteract = performance.now(); });
+    canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+    window.addEventListener("mousemove", (e) => {
+      const dx = e.clientX - lastMouse.x, dy = e.clientY - lastMouse.y; lastMouse = { x: e.clientX, y: e.clientY };
+      if (orbiting) { cam.yaw += dx * 0.004; cam.pitch = Math.max(-1.2, Math.min(1.2, cam.pitch + dy * 0.003)); lastInteract = performance.now(); return; }
+      if (panning) { const k = cam.dist / cam.fov; const cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw); cam.target.x -= (cy*dx)*k; cam.target.y -= dy*k; cam.target.z -= (-sy*dx)*k; lastInteract = performance.now(); return; }
+      const rect = canvas.getBoundingClientRect(); hoverNode = nodeAt(e.clientX - rect.left, e.clientY - rect.top);
+      canvas.style.cursor = hoverNode ? "pointer" : "grab";
+    });
+    window.addEventListener("mouseup", (e) => {
+      if (!orbiting && !panning) { const rect = canvas.getBoundingClientRect(); const n = nodeAt(e.clientX - rect.left, e.clientY - rect.top); if (n) { selected = n.id; renderQueue(); renderDetail(n.item); } }
+      orbiting = false; panning = false; canvas.style.cursor = "grab";
+    });
+    canvas.addEventListener("wheel", (e) => { e.preventDefault(); cam.dist = Math.max(240, Math.min(2400, cam.dist * Math.exp(e.deltaY * 0.001))); lastInteract = performance.now(); }, { passive: false });
+
+    // Touch support
+    let touchStart = null, pinchDist = 0;
+    canvas.addEventListener("touchstart", (e) => { lastInteract = performance.now(); if (e.touches.length === 1) { touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY }; lastMouse = { ...touchStart }; } else if (e.touches.length === 2) { pinchDist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY); } }, { passive: true });
+    canvas.addEventListener("touchmove", (e) => { lastInteract = performance.now(); if (e.touches.length === 1) { const t = e.touches[0]; cam.yaw += (t.clientX-lastMouse.x)*0.004; cam.pitch = Math.max(-1.2, Math.min(1.2, cam.pitch+(t.clientY-lastMouse.y)*0.003)); lastMouse = { x: t.clientX, y: t.clientY }; } else if (e.touches.length === 2) { const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY); if (pinchDist) cam.dist = Math.max(240, Math.min(2400, cam.dist*pinchDist/d)); pinchDist = d; } }, { passive: true });
+    canvas.addEventListener("touchend", (e) => { if (touchStart && e.changedTouches.length === 1 && e.touches.length === 0) { const t = e.changedTouches[0]; if (Math.hypot(t.clientX-touchStart.x, t.clientY-touchStart.y) < 8) { const rect = canvas.getBoundingClientRect(); const n = nodeAt(t.clientX-rect.left, t.clientY-rect.top); if (n) { selected = n.id; renderQueue(); renderDetail(n.item); } } } touchStart = null; pinchDist = 0; });
+
+    // ── Tooltip ──────────────────────────────────────────────────────────
+    const tipEl = document.createElement("div");
+    tipEl.style.cssText = "position:absolute;pointer-events:none;opacity:0;transition:opacity .12s;z-index:20;background:rgba(4,7,16,.94);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:9px 13px;font-size:12px;color:#deeaf5;max-width:240px;line-height:1.45;backdrop-filter:blur(6px);";
+    cPanel.appendChild(tipEl);
+
+    // ── Legend ───────────────────────────────────────────────────────────
+    const updateLegend = () => {
+      const ws = inputs.map((inp, i) => ({ label: principles[names[i]].name.replace("AI Infrastructure Leverage", "AI Infra"), w: Number(inp.value) })).sort((a, b) => b.w - a.w).slice(0, 3);
+      const el = document.getElementById("constellation-legend"); if (!el) return; el.replaceChildren();
+      [["now","#2dd4a0"],["next","#5aabf5"],["later","#7a9ab0"],["parked","#f07070"]].forEach(([h,c]) => { const s = document.createElement("span"); s.className = "constellation-legend-item"; const d = document.createElement("span"); d.className = "constellation-legend-dot"; d.style.cssText = `background:${c};color:${c};`; s.append(d, document.createTextNode(h)); el.appendChild(s); });
+      const sep = document.createElement("span"); sep.style.cssText = "color:rgba(255,255,255,.18);font-size:10px;"; sep.textContent = "clustering by:"; el.appendChild(sep);
+      ws.forEach(({ label, w }) => { const s = document.createElement("span"); s.className = "constellation-legend-item"; s.style.color = "rgba(245,166,35,.65)"; s.textContent = `${label} ${Math.round(w)}%`; el.appendChild(s); });
+    };
+
+    // ── Render frame ────────────────────────────────────────────────────
+    const draw = (now) => {
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      ctx.clearRect(0, 0, CW, CH);
+      // Background
+      ctx.fillStyle = "#04060c";
+      ctx.fillRect(0, 0, CW, CH);
+      const bg = ctx.createRadialGradient(CW/2, CH/2, 0, CW/2, CH/2, Math.max(CW,CH)*0.7);
+      bg.addColorStop(0, "rgba(20,28,50,0.3)"); bg.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, CW, CH);
+
+      // Dust (parallax)
+      dust.forEach((d) => {
+        const px = ((d.ax + cam.yaw*d.depth*0.35) / (Math.PI*2) % 1 + 1) % 1 * (CW+60) - 30;
+        const py = ((d.ay + cam.pitch*d.depth*0.5) / Math.PI % 1 + 1) % 1 * (CH+60) - 30;
+        const tw = 0.8 + 0.2 * Math.sin(now * 0.001 * d.depth + d.ph);
+        ctx.fillStyle = d.warm ? `rgba(235,220,195,${d.a*tw})` : `rgba(200,212,238,${d.a*tw})`;
+        ctx.beginPath(); ctx.arc(px, py, d.s, 0, Math.PI*2); ctx.fill();
+      });
+
+      // Project all nodes
+      nodes3d.forEach((n) => { const p = project(n.x, n.y, n.z); if (p) { n.sx = p.x; n.sy = p.y; n.ss = p.s; n.sz = p.z; } else n.ss = 0; });
+
+      // MST constellation skeleton per category
+      catKeys.forEach((k) => {
+        const lc = mixHex(CLUSTER_COLOR[k] || "#5a7a90", "#96a4c4", 0.4);
+        familyMST(k).forEach(([a, b]) => {
+          if (!a.ss || !b.ss) return;
+          const fade = Math.min(depthFade(a.sz), depthFade(b.sz));
+          ctx.strokeStyle = rgba(lc, 0.12 * fade); ctx.lineWidth = 0.6;
+          ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
+        });
+      });
+
+      // Similarity edges
+      edges3d.forEach((e) => {
+        if (!e.a.ss || !e.b.ss) return;
+        const fade = Math.min(depthFade(e.a.sz), depthFade(e.b.sz));
+        const hot = hoverNode && (e.a === hoverNode || e.b === hoverNode);
+        ctx.strokeStyle = hot ? "rgba(210,225,245,0.6)" : rgba(CLUSTER_COLOR[e.a.cat] || "#5aabf5", (e.cross ? 0.04 : 0.14) * e.sim * fade);
+        ctx.lineWidth = hot ? 1 : (e.sim > 0.95 ? 0.7 : 0.4);
+        ctx.beginPath(); ctx.moveTo(e.a.sx, e.a.sy); ctx.lineTo(e.b.sx, e.b.sy); ctx.stroke();
+      });
+
+      // Stars — painter's order (far → near)
+      const ordered = [...nodes3d].sort((a, b) => b.sz - a.sz);
+      const labels = [];
+      ordered.forEach((n) => {
+        if (!n.ss) return;
+        const fade = depthFade(n.sz);
+        if (n.sx < -30 || n.sx > CW+30 || n.sy < -30 || n.sy > CH+30) return;
+        const tw = 1 + 0.07 * Math.sin(now * 0.001 * n.tw + n.phase);
+        const r = Math.max(0.8, Math.min(6, starR(n.item) * n.ss * 0.55)) * tw;
+        const color = starColor(n.item);
+        const A = fade;
+        const isSel = n.id === selected;
+        const isHot = n === hoverNode;
+        const isTop = wScore(n.item) >= 50;
+
+        // Glow halo for bigger stars
+        if (isTop || isSel) {
+          const gR = r * (isSel ? 5 : 3.5);
+          const gA = (isSel ? 0.18 : 0.1) * A;
+          const g = ctx.createRadialGradient(n.sx, n.sy, 0, n.sx, n.sy, gR);
+          g.addColorStop(0, rgba(color, gA)); g.addColorStop(1, rgba(color, 0));
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(n.sx, n.sy, gR, 0, Math.PI*2); ctx.fill();
+        }
+
+        // Core
+        ctx.fillStyle = rgba(color, Math.min(1, (isTop ? 0.95 : 0.7) * A));
+        ctx.beginPath(); ctx.arc(n.sx, n.sy, r, 0, Math.PI*2); ctx.fill();
+        // White center
+        if (isTop || isSel) {
+          ctx.fillStyle = `rgba(255,255,255,${0.9 * A})`;
+          ctx.beginPath(); ctx.arc(n.sx, n.sy, r * 0.35, 0, Math.PI*2); ctx.fill();
+        }
+
+        // Hover ring
+        if (isHot || isSel) {
+          ctx.strokeStyle = `rgba(220,232,250,${isSel ? 0.7 : 0.5})`;
+          ctx.lineWidth = 0.8;
+          ctx.beginPath(); ctx.arc(n.sx, n.sy, r + 4, 0, Math.PI*2); ctx.stroke();
+        }
+
+        // Status ring
+        const st = statuses[n.id];
+        if (st) {
+          const rc = { blocked: "#fca5a5", "in-progress": "#5aabf5", done: "#2dd4a0", deferred: "#7a9ab0" }[st] || "#5aabf5";
+          ctx.strokeStyle = rgba(rc, 0.5 * A); ctx.lineWidth = 0.7; ctx.setLineDash([3,3]);
+          ctx.beginPath(); ctx.arc(n.sx, n.sy, r + 6, 0, Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+        }
+
+        if (A > 0.25) labels.push({ n, r, A });
+      });
+
+      // Labels
+      ctx.font = "10px system-ui, sans-serif"; ctx.textAlign = "left";
+      const placed = [];
+      labels.sort((a, b) => (b.n === hoverNode) - (a.n === hoverNode) || starR(b.n.item) - starR(a.n.item));
+      labels.forEach(({ n, r, A }) => {
+        const hot = n === hoverNode || n.id === selected;
+        const text = shortLabel(n.item.name);
+        const x = n.sx + r + 6, y = n.sy + 3;
+        const box = { x: x-2, y: y-10, w: text.length*5.8+4, h: 14 };
+        const clash = !hot && placed.some((b) => box.x < b.x+b.w && box.x+box.w > b.x && box.y < b.y+b.h && box.y+box.h > b.y);
+        if (clash) return;
+        placed.push(box);
+        ctx.fillStyle = `rgba(196,208,232,${(hot ? 0.92 : 0.38) * A})`;
+        ctx.fillText(text, x, y);
+      });
+
+      // Category names
+      catKeys.forEach((k) => {
+        const fn = nodes3d.filter((n) => n.cat === k && n.ss);
+        if (fn.length < 2) return;
+        let cx = 0, topY = Infinity, cz = 0;
+        fn.forEach((n) => { cx += n.sx; cz += n.sz; topY = Math.min(topY, n.sy); }); cx /= fn.length; cz /= fn.length;
+        const alpha = 0.25 * depthFade(cz);
+        const catLabel = k.split("/").pop().trim().toUpperCase().split("").join(" ");
+        ctx.font = "500 9px system-ui, sans-serif"; ctx.textAlign = "center";
+        ctx.fillStyle = rgba(CLUSTER_COLOR[k] || "#5a7a90", alpha);
+        ctx.fillText(catLabel, cx, topY - 18);
+      });
+
+      // ── Legend key (bottom-left) ──────────────────────────────────────
+      const kx = 16, ky = CH - 14;
+      ctx.globalAlpha = 0.7;
+      ctx.font = "bold 8px system-ui, sans-serif"; ctx.textAlign = "left";
+
+      // Category color key
+      let ly = ky;
+      catKeys.forEach((k) => {
+        const c = CLUSTER_COLOR[k] || "#5a7a90";
+        const label = k.split("/").pop().trim();
+        ctx.fillStyle = c;
+        ctx.beginPath(); ctx.arc(kx + 4, ly - 3, 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = `rgba(196,208,232,0.55)`;
+        ctx.fillText(label, kx + 12, ly);
+        ly -= 14;
+      });
+
+      // Size scale
+      ly -= 6;
+      ctx.fillStyle = "rgba(196,208,232,0.4)";
+      ctx.font = "bold 7px system-ui, sans-serif";
+      ctx.fillText("SIZE = RANK", kx, ly); ly -= 12;
+      [[7, "Top"], [4, "Mid"], [1.8, "Low"]].forEach(([r, label]) => {
+        ctx.fillStyle = "rgba(180,200,230,0.5)";
+        ctx.beginPath(); ctx.arc(kx + 4, ly - r, r, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(196,208,232,0.4)";
+        ctx.fillText(label, kx + 14, ly - r + 3);
+        ly -= r * 2 + 6;
+      });
+
+      ctx.globalAlpha = 1;
+
+      // Tooltip
+      if (hoverNode && !orbiting) {
+        const rect = cPanel.getBoundingClientRect();
+        const sc = statuses[hoverNode.id];
+        const statusHtml = sc ? `<span style="color:${{"blocked":"#fca5a5","in-progress":"#5aabf5","done":"#2dd4a0","deferred":"#5a7a90"}[sc]||"#fff"};font-weight:700;">${STATUS_LABELS[sc]}</span> · ` : "";
+        tipEl.innerHTML = `<strong style="display:block;font-size:12px;margin-bottom:3px;">${hoverNode.item.name}</strong><span style="color:#5a7a90;font-size:10px;">${statusHtml}${hoverNode.cat} · ${hoverNode.item.horizon}</span><br><span style="color:#f5a623;font-weight:700;">${wScore(hoverNode.item).toFixed(1)} pts</span><span style="color:#5a7a90;font-size:10px;"> · effort ${hoverNode.item.effort}/5</span>`;
+        tipEl.style.left = Math.min(lastMouse.x - rect.left + 14, CW - 260) + "px";
+        tipEl.style.top = Math.max(lastMouse.y - rect.top - 8, 50) + "px";
+        tipEl.style.opacity = "1";
+      } else { tipEl.style.opacity = "0"; }
+    };
+
+    // ── Warm-up physics ─────────────────────────────────────────────────
+    for (let i = 0; i < 350; i++) physicsTick();
+
+    // ── Animation loop ──────────────────────────────────────────────────
+    let animId = null;
+    const frame = (now) => {
+      // Auto-rotate when idle
+      if (now - lastInteract > 3500 && !orbiting && !panning) cam.yaw += 0.0004;
+      physicsTick();
+      draw(now);
+      animId = requestAnimationFrame(frame);
+    };
+    animId = requestAnimationFrame(frame);
+
+    // ── Collapse button ─────────────────────────────────────────────────
+    const collapseBtn = document.getElementById("constellation-collapse");
+    if (collapseBtn) {
+      collapseBtn.addEventListener("click", () => {
+        const isCollapsed = cPanel.classList.toggle("collapsed");
+        collapseBtn.textContent = isCollapsed ? "▸" : "▾";
+        collapseBtn.setAttribute("aria-expanded", String(!isCollapsed));
+        collapseBtn.title = isCollapsed ? "Expand constellation" : "Collapse constellation";
+        document.documentElement.style.setProperty("--constellation-h", isCollapsed ? "44px" : "384px");
+        if (isCollapsed && animId) { cancelAnimationFrame(animId); animId = null; }
+        else if (!isCollapsed && !animId) { resize(); animId = requestAnimationFrame(frame); }
+      });
+    }
+
+    // Expose update for weight/score changes
+    panel._update = () => { rebuildLinks(); updateLegend(); };
+    updateLegend();
+  };
+
+  const updateConstellation = () => {
+    const inner = document.getElementById("constellation-inner");
+    if (inner && inner._update) inner._update();
+  };
+
+  // ── Scenario bar ──────────────────────────────────────────────────────
+  const renderScenarioBar = () => {
+    let bar = document.getElementById("scenario-bar");
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = "scenario-bar";
+      bar.className = "scenario-bar";
+      const wrap = document.querySelector(".portfolio-wrap");
+      wrap.parentNode.insertBefore(bar, wrap);
+    }
+    bar.replaceChildren();
+
+    const label = document.createElement("span");
+    label.className = "scenario-bar-label";
+    label.textContent = "Scenarios";
+    bar.appendChild(label);
+
+    const saveBtn = document.createElement("button");
+    saveBtn.type = "button";
+    saveBtn.className = "scenario-save-btn";
+    saveBtn.textContent = "+ Save current";
+    saveBtn.addEventListener("click", () => {
+      const scenarioName = window.prompt("Scenario name:");
+      if (!scenarioName || !scenarioName.trim()) return;
+      scenarios.push({
+        name: scenarioName.trim(),
+        weights: inputs.map((inp) => Number(inp.value)),
+        overrides: Object.fromEntries(initiatives.map((item) => [item.id, { ...item.overrides }])),
+        statuses: { ...statuses },
+      });
+      persistSession();
+      renderScenarioBar();
+    });
+    bar.appendChild(saveBtn);
+
+    const resetBtn = document.createElement("button");
+    resetBtn.type = "button";
+    resetBtn.className = "reset-overrides-btn";
+    resetBtn.textContent = "Reset overrides";
+    resetBtn.title = "Clear all manual score overrides and restore workspace scores";
+    resetBtn.addEventListener("click", () => {
+      initiatives.forEach((item) => {
+        item.overrides = {};
+        item.scores = [...item.baseScores];
+      });
+      persistSession();
+      render({ immediate: true });
+      renderScenarioBar();
+      const sel = initiatives.find((item) => item.id === selected);
+      if (sel) renderDetail(sel);
+    });
+    bar.appendChild(resetBtn);
+
+    scenarios.forEach((scenario, si) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "scenario-chip";
+      chip.title = `Load scenario: ${scenario.name}`;
+
+      const chipName = document.createElement("span");
+      chipName.textContent = scenario.name;
+      chip.appendChild(chipName);
+
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "scenario-chip-del";
+      del.textContent = "×";
+      del.title = "Delete scenario";
+      del.addEventListener("click", (e) => {
+        e.stopPropagation();
+        scenarios.splice(si, 1);
+        persistSession();
+        renderScenarioBar();
+      });
+      chip.appendChild(del);
+
+      chip.addEventListener("click", () => {
+        scenario.weights.forEach((w, i) => { inputs[i].value = String(w); });
+        initiatives.forEach((item) => {
+          item.overrides = { ...(scenario.overrides[item.id] || {}) };
+          item.scores = [...item.baseScores];
+          Object.entries(item.overrides).forEach(([k, v]) => { item.scores[Number(k)] = v; });
+        });
+        Object.assign(statuses, scenario.statuses || {});
+        persistWorkspace();
+        persistSession();
+        render({ reorderPrinciples: true, immediate: true });
+        renderScenarioBar();
+        const sel = initiatives.find((item) => item.id === selected);
+        if (sel) renderDetail(sel);
+      });
+      bar.appendChild(chip);
+    });
+  };
+
   // ── Theme switcher ────────────────────────────────────────────────────
   const THEME_KEY = "priority_foregrounds.theme/v1";
   const VALID_THEMES = ["deep-space", "glassmorphism", "editorial"];
@@ -882,19 +1638,24 @@
   // ─────────────────────────────────────────────────────────────────────
 
   loadWorkspace();
+  initiatives.forEach((item) => { item.baseScores = [...item.scores]; }); // workspace scores before session overrides
+  loadSession();
+  render({ reorderPrinciples: true, immediate: true });
+  rankPrinciples(); // sort once on load
   inputs.forEach((input) => {
     input.addEventListener("input", () => {
       redistribute(input);
       document.querySelectorAll(".preset").forEach((button) => button.classList.remove("active"));
-      render();
+      render(); // deferred — shows countdown
     });
     input.addEventListener("change", () => {
       persistWorkspace();
-      render({ reorderPrinciples: true });
+      render({ reorderPrinciples: true }); // still deferred; rankPrinciples is instant, queue waits
     });
   });
   document.querySelectorAll(".preset").forEach((button) => button.addEventListener("click", () => setPreset(button.dataset.preset)));
   document.querySelector("#reset").addEventListener("click", () => setPreset("balanced"));
+  document.querySelector("#rerank").addEventListener("click", () => rankPrinciples());
   document.querySelectorAll("[data-edit-principle]").forEach((button) => button.addEventListener("click", () => openPrincipleEditor(button.dataset.editPrinciple)));
   document.querySelectorAll("[data-rescore-principle]").forEach((button) => button.addEventListener("click", () => rescorePrinciple(button.dataset.rescorePrinciple)));
   document.querySelector("#save-principle-prompt").addEventListener("click", () => { if (savePromptFromEditor()) editor.close(); });
@@ -902,33 +1663,9 @@
   editor.addEventListener("close", () => { activePrinciple = ""; promptError.hidden = true; });
   document.querySelectorAll(".cost-inputs input").forEach((input) => input.addEventListener("input", renderCost));
 
-  // ── Panel expand / collapse ──────────────────────────────────────────
-  const collapseAll = () => {
-    document.querySelectorAll(".panel--full").forEach((panel) => {
-      panel.classList.remove("panel--full");
-    });
-    document.querySelectorAll(".panel-expand-btn").forEach((btn) => {
-      btn.setAttribute("aria-expanded", "false");
-    });
-  };
-  document.querySelectorAll(".panel-expand-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const panel = document.getElementById(btn.dataset.panel);
-      const expanding = !panel.classList.contains("panel--full");
-      collapseAll();
-      if (expanding) {
-        panel.classList.add("panel--full");
-        btn.setAttribute("aria-expanded", "true");
-        panel.focus();
-      }
-    });
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") collapseAll();
-  });
-  // ────────────────────────────────────────────────────────────────────
-
-  render({ reorderPrinciples: true });
+  render({ reorderPrinciples: true, immediate: true });
   renderDetail(initiatives.find((item) => item.id === selected));
+  renderScenarioBar();
   renderCost();
+  initConstellation();
 })();
